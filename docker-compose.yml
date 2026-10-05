@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: naryad_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: naryad
+      POSTGRES_USER: naryad
+      POSTGRES_PASSWORD: naryad_secret_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: naryad_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://naryad:naryad_secret_password@db:5432/naryad
+      JWT_SECRET: production-secret-key-kosta-minerals
+      DEADLINE_CHECK_INTERVAL_SEC: 15
+    volumes:
+      - media_data:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
+  media_data:

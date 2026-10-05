@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Крупные кнопки для работы в перчатках (требование кейса 9.4) */
+.btn-touch {
+  min-height: 48px;
+  min-width: 48px;
+}
