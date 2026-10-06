@@ -4,7 +4,8 @@ import { Navbar } from './components/Navbar';
 import { LoginPage } from './pages/LoginPage';
 import { MasterView } from './pages/MasterView';
 import { WorkerView } from './pages/WorkerView';
-import { ManagerDashboard } from './pages/ManagerDashboard';
+import { AnalyticsView } from './pages/AnalyticsView';
+import { RatingShiftView } from './pages/RatingShiftView';
 
 export const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
@@ -33,8 +34,10 @@ export const AppContent: React.FC = () => {
           <WorkerView />
         ) : currentTab === 'master' ? (
           <MasterView />
+        ) : currentTab === 'analytics' ? (
+          <AnalyticsView />
         ) : (
-          <ManagerDashboard viewMode={currentTab === 'rating' ? 'rating' : 'analytics'} />
+          <RatingShiftView />
         )}
       </main>
 

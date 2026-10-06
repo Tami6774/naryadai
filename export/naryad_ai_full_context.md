@@ -48,6 +48,11 @@
 - `backend/tests/test_exports_nlp.py`
 - `backend/tests/test_lifecycle.py`
 - `docker-compose.yml`
+- `export/AI_STUDIO_GUIDE.md`
+- `export/prompts/01_telegram_bot.md`
+- `export/prompts/02_flutter_mobile_app.md`
+- `export/prompts/03_kotlin_jetpack_compose.md`
+- `export/prompts/04_erp_integration_1c.md`
 - `frontend/android/app/src/main/AndroidManifest.xml`
 - `frontend/android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml`
 - `frontend/android/app/src/main/res/drawable/ic_launcher_background.xml`
@@ -73,7 +78,8 @@
 - `frontend/src/context/AuthContext.tsx`
 - `frontend/src/index.css`
 - `frontend/src/main.tsx`
-- `frontend/src/pages/ManagerDashboard.tsx`
+- `frontend/src/pages/AnalyticsView.tsx`
+- `frontend/src/pages/RatingShiftView.tsx`
 - `frontend/src/types.ts`
 - `frontend/src/utils/useVoice.ts`
 - `frontend/tailwind.config.js`
@@ -83,6 +89,7 @@
 - `run_windows.bat`
 - `run_windows.ps1`
 - `scripts/export_for_ai_studio.py`
+- `scripts/generate_app_with_gemini.py`
 
 ---
 
@@ -2951,7 +2958,8 @@ import { Navbar } from './components/Navbar';
 import { LoginPage } from './pages/LoginPage';
 import { MasterView } from './pages/MasterView';
 import { WorkerView } from './pages/WorkerView';
-import { ManagerDashboard } from './pages/ManagerDashboard';
+import { AnalyticsView } from './pages/AnalyticsView';
+import { RatingShiftView } from './pages/RatingShiftView';
 
 export const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
@@ -2980,8 +2988,10 @@ export const AppContent: React.FC = () => {
           <WorkerView />
         ) : currentTab === 'master' ? (
           <MasterView />
+        ) : currentTab === 'analytics' ? (
+          <AnalyticsView />
         ) : (
-          <ManagerDashboard viewMode={currentTab === 'rating' ? 'rating' : 'analytics'} />
+          <RatingShiftView />
         )}
       </main>
 
@@ -3209,6 +3219,7 @@ export const api = {
   getCounters: () => request<{ shift: string; issued: number; done: number; overdue: number; equipment_down: number }>('/dashboard/counters'),
   getShiftReport: (start?: string, end?: string) => request<any>('/reports/shift'),
   getRating: () => request<any>('/reports/rating'),
+  getBrigadesRating: (days: number = 30) => request<any>(`/reports/brigades?days=${days}`),
   getAnomalies: (days: number = 90) => request<any>(`/analytics/anomalies?days=${days}`),
   getMaterialsReport: (days: number = 30) => request<any>(`/reports/materials?days=${days}`),
 
@@ -8021,6 +8032,263 @@ volumes:
 
 ---
 
+### Файл: `export/AI_STUDIO_GUIDE.md`
+
+```markdown
+# Инструкция: Как использовать проект «НарядAI» в Google AI Studio
+
+**Google AI Studio** ([aistudio.google.com](https://aistudio.google.com/)) предоставляет бесплатный доступ к передовым флагманским моделям **Gemini 2.0 Flash**, **Gemini 2.0 Pro** и **Gemini 1.5 Pro** с гигантским контекстным окном от **1 000 000 до 2 000 000 токенов**.
+
+Мы уже экспортировали весь проект в единый файл:
+👉 `export/naryad_ai_full_context.md` (77 файлов, ~120 000 токенов — это всего **~12%** от контекстного окна Gemini).
+
+---
+
+## 🚀 Пошаговый алгоритм работы в Google AI Studio
+
+### Шаг 1: Вход в сервис
+1. Откройте в браузере: **[https://aistudio.google.com/](https://aistudio.google.com/)**
+2. Войдите под своим Google-аккаунтом.
+3. Нажмите **"Create new prompt"** -> выберите **"Chat prompt"** (или "Freeform prompt").
+
+### Шаг 2: Выбор модели и параметров
+В правой панели настроек установите:
+- **Model:** `Gemini 2.0 Flash` (очень быстрая генерация кода) или `Gemini 1.5 Pro` (максимально глубокое рассуждение и сложная архитектура).
+- **Temperature:** `0.2` (низкая температура для детерминированного, точного и синтаксически идеального кода).
+- **Safety settings:** можно оставить по умолчанию или выставить `Block few`.
+
+### Шаг 3: Настройка системных инструкций (System Instructions)
+В левой панели в поле **System Instructions** скопируйте следующий текст:
+
+```
+Ты — элитный Lead Mobile & Backend Architect с 15-летним опытом в промышленной автоматизации (АСУ ТП, ТОИР, MES).
+Перед тобой полная кодовая база системы «НарядAI» для АО «Костанайские Минералы» (Qostanai Industry Hackathon 2026).
+Твоя задача — создавать качественный, готовый к production код, строго соблюдая:
+1. Архитектуру конечного автомата нарядов (10 статусов: created -> issued -> accepted -> in_progress -> paused -> pending_review -> needs_rework -> approved / cancelled / rejected).
+2. Офлайн-персистентность (действия рабочих в шахтах/экранированных цехах без связи не должны теряться).
+3. Существующие REST API и WebSocket контракты FastAPI бэкенда.
+4. Контрастные, крупные элементы управления (Touch Target >= 48px) для работы в перчатках на производстве.
+Пиши чистый, типобезопасный, модульный код с подробными комментариями и структурой проекта.
+```
+
+### Шаг 4: Загрузка контекста проекта
+1. В окне чата нажмите на значок скрепки / кнопки **"+" (Add file)**.
+2. Выберите файл из вашего проекта:
+   `export/naryad_ai_full_context.md`
+   *(Gemini моментально загрузит все 77 файлов проекта и проиндексирует архитектуру)*.
+
+---
+
+## 📋 Готовые промпты для генерации приложений
+
+Выберите подходящий промпт и отправьте его сообщением к загруженному файлу:
+
+---
+
+### 📱 Вариант А: Полноценное мобильное приложение на Flutter (Dart)
+
+> **Промпт для отправки:**
+> ```text
+> На основе предоставленной кодовой базы «НарядAI» напиши полноценное мобильное приложение на Flutter для слесарей и мастеров смен.
+>
+> Требования к приложению:
+> 1. Стек: Flutter 3.x, State Management (Riverpod или BLoC), локальная БД Drift (SQLite) для полного offline-first режима.
+> 2. Экраны:
+>    - Экран авторизации по табельному номеру и 4-значному ПИН-коду.
+>    - Экран слесаря: карточка активного наряда (крупные кнопки «Принять», «В работу», «Пауза», «Завершить»), таймер нормативного времени, статус очереди.
+>    - Модалка завершения наряда с прикреплением 2 фото (до/после) через камеру и выбором ТМЦ из справочника.
+>    - Экран мастера: мобильный Канбан по статусам и форма быстрой выдачи наряда с таймером и пресетом «1 минута».
+> 3. Офлайн-очередь: сохранение всех мутаций в локальную SQLite и фоновая автосинхронизация при появлении Wi-Fi.
+> 4. Звуковые сигналы и вибрация при эскалации дедлайна.
+>
+> Предоставь структуру проекта lib/, pubspec.yaml, модели данных, сервис API клиента и код основных экранов.
+> ```
+
+---
+
+### ⚛️ Вариант Б: Мобильное приложение на React Native (Expo)
+
+> **Промпт для отправки:**
+> ```text
+> На основе предоставленного кода FastAPI бэкенда и React фронтенда сделай мобильное приложение на React Native с Expo SDK 52.
+>
+> Требования:
+> 1. Стек: TypeScript, Expo Router, NativeWind (Tailwind для React Native), Zustand для стейта, TanStack Query, expo-camera.
+> 2. Офлайн-кэш: WatermelonDB или AsyncStorage с локальной очередью действий.
+> 3. Поддержка звуковых алертов и Haptic Feedback (виброотклик).
+> 4. Прямое соответствие существующим API эндпоинтам: /api/login, /api/orders, /api/orders/{id}/action, /api/orders/{id}/photos.
+>
+> Предоставь package.json, структуру app/ и реализацию ключевых экранов.
+> ```
+
+---
+
+### 🤖 Вариант В: Нативное Android-приложение (Kotlin + Jetpack Compose)
+
+> **Промпт для отправки:**
+> ```text
+> На основе кодовой базы проекта «НарядAI» разработай нативное Android-приложение на Kotlin с Jetpack Compose и Clean Architecture.
+>
+> Архитектура:
+> 1. UI: Jetpack Compose + Material 3 (темная индустриальная тема).
+> 2. DI: Hilt.
+> 3. Сеть и БД: Retrofit + OkHttp + Room Database (для офлайн-режима).
+> 4. Фоновая синхронизация: WorkManager (синхронизация накопленных действий при появлении соединения).
+> 5. Камера: CameraX для фотофиксации узлов агрегатов с превью и сжатием до 10 МБ.
+>
+> Напиши build.gradle.kts, Room Entity, DAO, Repository с WorkManager и Composable-экраны слесаря и мастера.
+> ```
+
+---
+
+### 💬 Вариант Г: Telegram-бот для слесарей и мастеров смен (Python aiogram 3)
+
+> **Промпт для отправки:**
+> ```text
+> Используя существующую базу данных naryad.db и сервисы backend/app/services/, напиши Telegram-бота на Python (aiogram 3.x) для оперативной работы слесарей и мастеров прямо через Telegram.
+>
+> Функционал бота:
+> 1. Авторизация сотрудника по кнопке «Поделиться контактом» или вводу табельного номера и ПИН-кода.
+> 2. Для слесаря: получение уведомлений о новом наряде с Inline-кнопками [✅ Принять], [▶️ В работу], [⏸ Пауза], [🏁 Сдать смену].
+> 3. Сдача работы: запрос фотоотчёта прямо через отправку фото в чат бота (с автоматическим расчетом dHash и проверкой качества фото через наш ai_review.py).
+> 4. Для мастера: мгновенное уведомление в Telegram при срыве дедлайна или отклонении наряда слесарем с кнопкой переназначения.
+>
+> Напиши единый рабочий скрипт бота с интеграцией в наш SQLAlchemy движок.
+> ```
+
+---
+
+## 💡 Полезные советы при работе с Gemini в AI Studio
+
+1. **Разбивка на этапы:** Если приложение большое, попросите Gemini: *"Сначала напиши архитектуру и data-слой, а в следующем шаге экраны UI"*.
+2. **Экспорт в GitHub:** Сгенерированный код можно сразу тестировать в локальном проекте или в VS Code / Android Studio.
+3. **Функция "Get code"**: В верхнем правом углу Google AI Studio есть кнопка `Get code`, которая позволяет вызвать ту же генерацию через Python / Node.js SDK или cURL с вашим бесплатным API-ключом Gemini.
+```
+
+---
+
+### Файл: `export/prompts/01_telegram_bot.md`
+
+```markdown
+# Промпт: Создание Telegram-бота для системы «НарядAI» (Python / aiogram 3)
+
+Используя предоставленный контекст проекта «НарядAI» (АО «Костанайские Минералы»), напиши полноценного Telegram-бота на Python с использованием библиотеки **aiogram 3.x**.
+
+## Назначение бота
+Обеспечить мобильную работу слесарей и мастеров смен прямо через Telegram:
+1. **Слесари:** получают персональные уведомления о выданных нарядах, переводят их по статусам кнопками («Принять», «В работу», «Пауза», «Сдать смену»), прикрепляют фотоотчёты «до» и «после» прямо из камеры смартфона.
+2. **Мастера смен:** получают экстренные алерты при срыве дедлайнов или отклонении наряда слесарем, видят список активных нарядов и могут выдать срочный наряд через пошаговый диалог.
+
+## Архитектура и требования:
+1. **База данных:** бот должен напрямую работать с существующей базой `backend/naryad.db` через SQLAlchemy модели из `backend/app/models.py`.
+2. **ИИ-контроль качества фото:** при отправке фото слесарем бот должен вызывать наш локальный модуль `backend/app/services/ai_review.py` и `analytics.py` (вычисление dHash, проверка дубликатов, оценка по 5-балльной шкале).
+3. **FSM слесаря (Inline-кнопки):**
+   - Наряд выдан (`issued`) -> Кнопка `[✅ Принять]` или `[❌ Отклонить]`
+   - Принят (`accepted`) -> Кнопка `[▶️ Начать ремонт]`
+   - В работе (`in_progress`) -> Кнопки `[⏸ Пауза]`, `[🏁 Завершить]`
+   - При завершении: бот запрашивает фотоотчёт узла и списанные ТМЦ (с выбором из справочника).
+4. **Уведомления мастера:** при наступлении дедлайна или статусе `rejected` отправлять мастеру сообщение с кнопкой `[🔄 Переназначить]`.
+
+Перед каждым сгенерированным файлом укажи маркер вида:
+# FILE: bot/main.py
+# FILE: bot/handlers/worker.py
+# FILE: bot/handlers/master.py
+# FILE: bot/keyboards.py
+# FILE: bot/requirements.txt
+# FILE: bot/README.md
+```
+
+---
+
+### Файл: `export/prompts/02_flutter_mobile_app.md`
+
+```markdown
+# Промпт: Создание кроссплатформенного мобильного приложения на Flutter (Offline-First)
+
+На основе предоставленной кодовой базы «НарядAI» напиши полноценное мобильное приложение на **Flutter 3.x** для слесарей и мастеров смен АО «Костанайские Минералы».
+
+## Архитектура и стек:
+1. **Управление состоянием:** `flutter_riverpod` (или `bloc`).
+2. **Offline-first хранилище:** `drift` (SQLite) с таблицами для локального кэширования нарядов, справочников оборудования/ТМЦ и таблицы `offline_mutations_queue`.
+3. **Сетевой слой:** `dio` с интерцептором: если сеть недоступна, действие сохраняется в локальную очередь Drift, UI обновляется оптимистично, а при появлении Wi-Fi фоновый `SyncService` отправляет действия на `/api/orders/{id}/action`.
+4. **Камера:** `camera` / `image_picker` с локальным вычислением перцептивного хэша dHash перед отправкой.
+5. **UI / Дизайн:** Темная индустриальная тема (Slate-900 / Emerald / Amber / Rose), размер touch-target всех кнопок не менее 48dp для комфортного нажатия в рабочих перчатках.
+
+## Экраны:
+1. `LoginScreen`: ввод табельного номера и 4-значного ПИН-кода (с быстрым выбором сервера API).
+2. `WorkerScreen`: карточка текущего активного наряда с крупными кнопками действий, таймером до дедлайна и списком очереди.
+3. `CloseOrderDialog`: форма сдачи с 2 фото («до» и «после») и мультиселектом ТМЦ.
+4. `MasterScreen`: упрощенный мобильный Канбан по колонкам и кнопка быстрой выдачи наряда с таймером («1 минута демо», «30м», «2ч», «8ч»).
+
+Перед каждым файлом укажи маркер вида:
+// FILE: pubspec.yaml
+// FILE: lib/main.dart
+// FILE: lib/data/database/app_database.dart
+// FILE: lib/data/services/api_service.dart
+// FILE: lib/data/services/sync_service.dart
+// FILE: lib/ui/screens/login_screen.dart
+// FILE: lib/ui/screens/worker_screen.dart
+// FILE: lib/ui/screens/master_screen.dart
+```
+
+---
+
+### Файл: `export/prompts/03_kotlin_jetpack_compose.md`
+
+```markdown
+# Промпт: Создание нативного Android-приложения на Kotlin + Jetpack Compose
+
+На основе предоставленной кодовой базы «НарядAI» напиши нативное Android-приложение на **Kotlin** с использованием **Jetpack Compose** и **Clean Architecture**.
+
+## Стек и архитектура:
+1. **UI:** Jetpack Compose + Material 3 (Dark Industrial Theme).
+2. **База данных:** Room Database (локальный кэш нарядов, оборудования, ТМЦ и таблица `pending_actions` для оффлайн-работы).
+3. **Фоновая работа:** `WorkManager` (периодическая и сетевая синхронизация мутаций при восстановлении подключения).
+4. **Сеть:** Retrofit 2 + OkHttp + Kotlinx Serialization.
+5. **Камера:** CameraX с предварительным сжатием фото и проверкой качества.
+6. **Аудио и вибро:** `Vibrator` и `SoundPool` при срыве дедлайна или получении критического наряда.
+
+## Экраны и компоненты:
+1. `LoginRoute`: экран входа по ПИН-коду.
+2. `WorkerRoute`: крупный интерфейс слесаря (адаптирован под перчатки).
+3. `PhotoCaptureRoute`: съемка узла оборудования с подсказками (сетка, уровень).
+4. `MasterKanbanRoute`: мобильный Канбан с перетаскиванием карточек и быстрым переназначением отклонённых нарядов.
+
+Перед каждым файлом укажи маркер вида:
+// FILE: app/build.gradle.kts
+// FILE: app/src/main/java/kz/kostanai/naryad/data/local/AppDatabase.kt
+// FILE: app/src/main/java/kz/kostanai/naryad/data/remote/NaryadApi.kt
+// FILE: app/src/main/java/kz/kostanai/naryad/data/sync/SyncWorker.kt
+// FILE: app/src/main/java/kz/kostanai/naryad/ui/worker/WorkerScreen.kt
+// FILE: app/src/main/java/kz/kostanai/naryad/ui/master/MasterScreen.kt
+```
+
+---
+
+### Файл: `export/prompts/04_erp_integration_1c.md`
+
+```markdown
+# Промпт: Создание интеграционного шлюза «НарядAI <-> 1С:ТОИР и SAP PM»
+
+На основе кодовой базы бэкенда «НарядAI» напиши модуль интеграции (шлюз) с корпоративными ERP-системами предприятия (**1С:ТОИР 2 КОРП** и **SAP PM**).
+
+## Требования к модулю интеграции:
+1. **Стек:** Python 3.12+, FastAPI, Celery / Async background tasks, OData v4 / SOAP / REST клиенты.
+2. **Двусторонняя синхронизация:**
+   - **Импорт из 1С/SAP:** периодический опрос графиков ППР (планово-предупредительных ремонтов) и дефектов из журналов АСУ ТП, автоматическое создание нарядов в «НарядAI».
+   - **Экспорт в 1С/SAP:** при статусе `approved` (наряд принят мастером) передача в 1С/SAP списанных материалов (ТМЦ), затраченного нормативного и фактического времени ремонта, а также ссылок на фотоотчёты.
+3. **Сопоставление справочников:** маппинг классификаторов оборудования и кодов дефектов (КИ-1..КИ-4, МХ-1..МХ-6) с позициями ЕК АСУ ГОП.
+4. **Отказоустойчивость:** очередь повторных попыток (Dead Letter Queue) при недоступности серверов 1С на ГОКе.
+
+Перед каждым файлом укажи маркер вида:
+# FILE: backend/app/integrations/erp_1c.py
+# FILE: backend/app/integrations/schemas_1c.py
+# FILE: backend/app/integrations/scheduler.py
+# FILE: backend/app/integrations/README.md
+```
+
+---
+
 ### Файл: `frontend/android/app/src/main/AndroidManifest.xml`
 
 ```xml
@@ -11184,80 +11452,47 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
 ---
 
-### Файл: `frontend/src/pages/ManagerDashboard.tsx`
+### Файл: `frontend/src/pages/AnalyticsView.tsx`
 
 ```tsx
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { 
-  Sparkles, AlertOctagon, TrendingUp, Award, Clock, 
-  BarChart3, ShieldAlert, CheckCircle, FileText, FileSpreadsheet, Download, Package 
+  Sparkles, AlertOctagon, TrendingUp, ShieldAlert, 
+  FileSpreadsheet, Package, RefreshCw, Layers, CheckCircle2 
 } from 'lucide-react';
 
-interface ManagerDashboardProps {
-  viewMode?: 'analytics' | 'rating';
-}
-
-export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ viewMode = 'analytics' }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'anomalies' | 'rating' | 'shift' | 'materials'>(
-    viewMode === 'rating' ? 'rating' : 'anomalies'
-  );
-  
+export const AnalyticsView: React.FC = () => {
+  const [periodDays, setPeriodDays] = useState<number>(90);
   const [anomaliesData, setAnomaliesData] = useState<any>(null);
-  const [ratingData, setRatingData] = useState<any>(null);
-  const [shiftData, setShiftData] = useState<any>(null);
   const [materialsData, setMaterialsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<string | null>(null);
 
+  const loadData = async (days: number) => {
+    setLoading(true);
+    try {
+      const [anom, mat] = await Promise.all([
+        api.getAnomalies(days),
+        api.getMaterialsReport(days),
+      ]);
+      setAnomaliesData(anom);
+      setMaterialsData(mat);
+    } catch (err) {
+      console.error('Error loading analytics data', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    async function loadReports() {
-      try {
-        const [anom, rate, sh, mat] = await Promise.all([
-          api.getAnomalies(90),
-          api.getRating(),
-          api.getShiftReport(),
-          api.getMaterialsReport(90),
-        ]);
-        setAnomaliesData(anom);
-        setRatingData(rate);
-        setShiftData(sh);
-        setMaterialsData(mat);
-      } catch (err) {
-        console.error('Error loading dashboard', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadReports();
-  }, []);
-
-  const handleDownloadShift = async () => {
-    setExporting('shift');
-    try {
-      await api.downloadShiftExcel();
-    } catch (err: any) {
-      alert(err.message || 'Ошибка выгрузки отчёта');
-    } finally {
-      setExporting(null);
-    }
-  };
-
-  const handleDownloadRating = async () => {
-    setExporting('rating');
-    try {
-      await api.downloadRatingExcel(90);
-    } catch (err: any) {
-      alert(err.message || 'Ошибка выгрузки рейтинга');
-    } finally {
-      setExporting(null);
-    }
-  };
+    loadData(periodDays);
+  }, [periodDays]);
 
   const handleDownloadMaterials = async () => {
     setExporting('materials');
     try {
-      await api.downloadMaterialsExcel(90);
+      await api.downloadMaterialsExcel(periodDays);
     } catch (err: any) {
       alert(err.message || 'Ошибка выгрузки ТМЦ');
     } finally {
@@ -11265,120 +11500,115 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ viewMode = '
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-12 text-emerald-400 font-bold animate-pulse">Анализ данных ИИ...</div>;
-  }
-
   return (
     <div className="space-y-6">
-      
-      {/* Шапка дашборда */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-lg">
+      {/* Шапка страницы аналитики */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl">
         <div>
-          <h2 className="text-xl font-bold text-white flex items-center space-x-2">
-            <span>Аналитический центр и отчёты</span>
-            <span className="text-xs bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-800">
-              ИИ-модуль 6.5
+          <div className="flex items-center space-x-2">
+            <h2 className="text-xl font-bold text-white flex items-center space-x-2">
+              <Sparkles className="text-emerald-400" size={22} />
+              <span>ИИ-Аналитика оборудования и контроль ТМЦ</span>
+            </h2>
+            <span className="text-xs bg-emerald-950 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-800 font-bold">
+              Раздел 6.5 & 7
             </span>
-          </h2>
-          <p className="text-xs text-slate-400">
-            Сводка по сменам, лидерборд качества и поиск аномалий в истории за 3 месяца
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Нейросетевой аудит поломок за 3 месяца, выявление скрытых аномалий после ППР и мониторинг перерасхода материалов
           </p>
         </div>
 
-        {/* Переключатель вкладок */}
-        <div className="flex space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-700">
+        {/* Переключатель периода анализа */}
+        <div className="flex items-center space-x-2 bg-slate-900 p-1 rounded-xl border border-slate-700">
+          <span className="text-[11px] text-slate-400 font-medium px-2">Период:</span>
+          {[30, 60, 90].map((days) => (
+            <button
+              key={days}
+              onClick={() => setPeriodDays(days)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                periodDays === days
+                  ? 'bg-emerald-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              {days} дней
+            </button>
+          ))}
           <button
-            onClick={() => setActiveSubTab('anomalies')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
-              activeSubTab === 'anomalies' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
+            onClick={() => loadData(periodDays)}
+            title="Обновить данные"
+            className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition ml-1"
           >
-            <Sparkles size={14} />
-            <span>Аномалии и ИИ-выводы (Шаг 9)</span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab('rating')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
-              activeSubTab === 'rating' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Award size={14} />
-            <span>Рейтинг рабочих (Шаг 8)</span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab('shift')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
-              activeSubTab === 'shift' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <FileText size={14} />
-            <span>Отчёт за смену</span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab('materials')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
-              activeSubTab === 'materials' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Package size={14} />
-            <span>Списание ТМЦ (раздел 7)</span>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
-      {/* Вкладка 1: ИИ-Аналитика и аномалии (Шаг 9 демо) */}
-      {activeSubTab === 'anomalies' && (
-        <div className="space-y-5">
-          
-          {/* Сводка за 90 дней */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-              <div className="text-xs text-slate-400 font-semibold">Всего нарядов (90 дней)</div>
-              <div className="text-2xl font-black text-white mt-1">{anomaliesData?.total_orders}</div>
+      {loading ? (
+        <div className="text-center py-16 text-emerald-400 font-bold animate-pulse flex flex-col items-center justify-center space-y-3">
+          <Sparkles className="animate-spin text-emerald-400" size={32} />
+          <span>ИИ-модель анализирует 3-месячную историю нарядов и отказов...</span>
+        </div>
+      ) : (
+        <>
+          {/* Сводные KPI за период */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
+              <div className="text-xs text-slate-400 font-semibold">Всего нарядов ({periodDays} дн)</div>
+              <div className="text-2xl font-black text-white mt-1">{anomaliesData?.total_orders ?? '—'}</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">В базе данных ЕК АСУ ГОП</div>
             </div>
-            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
               <div className="text-xs text-slate-400 font-semibold">Внеплановых поломок</div>
-              <div className="text-2xl font-black text-amber-400 mt-1">{anomaliesData?.unplanned_orders}</div>
+              <div className="text-2xl font-black text-amber-400 mt-1">{anomaliesData?.unplanned_orders ?? '—'}</div>
+              <div className="text-[11px] text-amber-500/80 mt-0.5">Требуют внимания</div>
             </div>
-            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
               <div className="text-xs text-slate-400 font-semibold">Плановых ППР</div>
-              <div className="text-2xl font-black text-emerald-400 mt-1">{anomaliesData?.planned_orders}</div>
+              <div className="text-2xl font-black text-emerald-400 mt-1">{anomaliesData?.planned_orders ?? '—'}</div>
+              <div className="text-[11px] text-emerald-500/80 mt-0.5">График ТО соблюдён</div>
             </div>
-            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
               <div className="text-xs text-slate-400 font-semibold">Найдено аномалий ИИ</div>
-              <div className="text-2xl font-black text-red-400 mt-1">{anomaliesData?.insights?.length || 0}</div>
+              <div className="text-2xl font-black text-red-400 mt-1">{anomaliesData?.insights?.length ?? 0}</div>
+              <div className="text-[11px] text-red-400/80 mt-0.5">Критических отклонений</div>
             </div>
           </div>
 
-          {/* Карточки найденных закономерностей с выводами ИИ */}
+          {/* Карточки выявленных закономерностей и рекомендаций ИИ */}
           <div className="space-y-3">
-            <h3 className="font-bold text-sm text-slate-200 flex items-center space-x-2">
-              <Sparkles size={16} className="text-emerald-400" />
-              <span>Ключевые закономерности и рекомендации ИИ</span>
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm text-slate-200 flex items-center space-x-2">
+                <Sparkles size={16} className="text-emerald-400" />
+                <span>Ключевые закономерности и рекомендации ИИ</span>
+              </h3>
+              <span className="text-xs text-slate-400">
+                Автоматический анализ корреляций поломок и качества ремонтов
+              </span>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {anomaliesData?.insights?.map((ins: any, idx: number) => {
                 const isCrit = ins.severity === 'critical';
                 return (
                   <div
                     key={idx}
-                    className={`p-4 rounded-2xl border shadow-md space-y-2.5 transition ${
+                    className={`p-4 rounded-2xl border shadow-lg space-y-3 transition ${
                       isCrit 
-                        ? 'bg-red-950/20 border-red-800' 
+                        ? 'bg-red-950/20 border-red-800/80' 
                         : 'bg-slate-800 border-slate-700'
                     }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-2">
-                        <span className={`w-2.5 h-2.5 rounded-full ${isCrit ? 'bg-red-500' : 'bg-amber-500'}`}></span>
+                        <span className={`w-2.5 h-2.5 rounded-full ${isCrit ? 'bg-red-500 animate-pulse' : 'bg-amber-500'}`}></span>
                         <h4 className="font-bold text-sm text-white">{ins.title}</h4>
                       </div>
                       <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-                        isCrit ? 'bg-red-900 text-red-200' : 'bg-amber-900 text-amber-200'
+                        isCrit ? 'bg-red-900 text-red-200 border border-red-700' : 'bg-amber-900 text-amber-200 border border-amber-700'
                       }`}>
-                        {ins.severity}
+                        {isCrit ? 'Критично' : 'Предупреждение'}
                       </span>
                     </div>
 
@@ -11386,8 +11616,11 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ viewMode = '
                       {ins.text}
                     </p>
 
-                    <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-700 text-xs text-emerald-300 leading-relaxed">
-                      <strong className="block text-emerald-400 mb-0.5 font-bold">💡 Рекомендация ИИ:</strong>
+                    <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-700 text-xs text-emerald-300 leading-relaxed">
+                      <strong className="block text-emerald-400 mb-0.5 font-bold flex items-center space-x-1.5">
+                        <CheckCircle2 size={13} className="text-emerald-400" />
+                        <span>Рекомендация ИИ:</span>
+                      </strong>
                       {ins.recommendation}
                     </div>
                   </div>
@@ -11396,32 +11629,43 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ viewMode = '
             </div>
           </div>
 
-          {/* Топ проблемного оборудования */}
-          <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 space-y-3">
-            <h3 className="font-bold text-sm text-slate-200">
-              Топ-10 оборудования по количеству внеплановых остановок
-            </h3>
+          {/* Таблица: Топ проблемного оборудования */}
+          <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl space-y-3">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-sm text-slate-200">
+                  Топ оборудования по количеству внеплановых остановок
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Узлы с максимальным коэффициентом превышения средней аварийности по цехам
+                </p>
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] border-b border-slate-700">
+                <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] border-b border-slate-700">
                   <tr>
                     <th className="py-2.5 px-3">Оборудование</th>
                     <th className="py-2.5 px-3">Участок</th>
                     <th className="py-2.5 px-3 text-center">Остановок</th>
                     <th className="py-2.5 px-3 text-center">Превышение ср.</th>
-                    <th className="py-2.5 px-3">Частый шифр</th>
+                    <th className="py-2.5 px-3">Частый шифр отказа</th>
                     <th className="py-2.5 px-3 text-right">Простой (ч)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/60 font-medium">
                   {anomaliesData?.top_problematic?.map((row: any) => (
-                    <tr key={row.equipment_id} className={row.ratio_to_avg >= 2.0 ? 'bg-red-950/20' : ''}>
-                      <td className="py-2.5 px-3 font-bold text-white">{row.name}</td>
+                    <tr key={row.equipment_id} className={row.ratio_to_avg >= 2.0 ? 'bg-red-950/20 hover:bg-red-950/30' : 'hover:bg-slate-750'}>
+                      <td className="py-2.5 px-3 font-bold text-white flex items-center space-x-1.5">
+                        {row.ratio_to_avg >= 2.0 && <AlertOctagon size={13} className="text-red-400" />}
+                        <span>{row.name}</span>
+                      </td>
                       <td className="py-2.5 px-3 text-slate-400">{row.section}</td>
                       <td className="py-2.5 px-3 text-center font-bold text-amber-400">{row.unplanned_count}</td>
                       <td className="py-2.5 px-3 text-center">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          row.ratio_to_avg >= 2.0 ? 'bg-red-900 text-red-200' : 'bg-slate-700 text-slate-300'
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          row.ratio_to_avg >= 2.0 ? 'bg-red-900 text-red-200 border border-red-700' : 'bg-slate-700 text-slate-300'
                         }`}>
                           ×{row.ratio_to_avg}
                         </span>
@@ -11435,147 +11679,43 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ viewMode = '
             </div>
           </div>
 
-        </div>
-      )}
-
-      {/* Вкладка 2: Рейтинг исполнителей и бригад (Шаг 8 демо) */}
-      {activeSubTab === 'rating' && (
-        <div className="space-y-4">
-          <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+          {/* Блок контроля списания ТМЦ (Раздел 7 ТЗ) */}
+          <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
-                <h3 className="font-bold text-sm text-slate-200 mb-1">
-                  Рейтинг исполнителей смены и бригад (раздел 6.6)
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Формула: <strong>0.35·Качество + 0.25·Сроки + 0.20·(100 - Повторы) + 0.15·Объём + 0.05·(100 - Отказы)</strong>
-                </p>
-              </div>
-              <button
-                onClick={handleDownloadRating}
-                disabled={exporting === 'rating'}
-                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow"
-              >
-                <FileSpreadsheet size={14} />
-                <span>{exporting === 'rating' ? 'Экспорт...' : 'Выгрузить в Excel'}</span>
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] border-b border-slate-700">
-                  <tr>
-                    <th className="py-2.5 px-3 text-center">Место</th>
-                    <th className="py-2.5 px-3">Сотрудник</th>
-                    <th className="py-2.5 px-3">Специальность</th>
-                    <th className="py-2.5 px-3 text-center">Итоговый балл</th>
-                    <th className="py-2.5 px-3 text-center">Качество</th>
-                    <th className="py-2.5 px-3 text-center">В срок</th>
-                    <th className="py-2.5 px-3 text-center">Повторные отказы</th>
-                    <th className="py-2.5 px-3 text-center">Нарядов</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/60 font-medium">
-                  {ratingData?.rows?.map((row: any) => (
-                    <tr key={row.id} className="hover:bg-slate-700/30">
-                      <td className="py-2.5 px-3 text-center font-black text-sm text-slate-400">
-                        {row.place === 1 ? '🥇 1' : row.place === 2 ? '🥈 2' : row.place === 3 ? '🥉 3' : `#${row.place}`}
-                      </td>
-                      <td className="py-2.5 px-3 font-bold text-white">{row.full_name}</td>
-                      <td className="py-2.5 px-3 text-slate-400">{row.specialty}</td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className="px-2.5 py-1 rounded-lg bg-emerald-950 border border-emerald-800 text-emerald-300 font-black text-sm">
-                          {row.rating}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-center text-slate-200">{row.components?.quality}</td>
-                      <td className="py-2.5 px-3 text-center text-slate-200">{row.components?.on_time}%</td>
-                      <td className="py-2.5 px-3 text-center font-bold text-amber-400">{row.repeat_failures}</td>
-                      <td className="py-2.5 px-3 text-center font-semibold text-slate-300">{row.orders_closed}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Вкладка 3: Отчёт за смену */}
-      {activeSubTab === 'shift' && shiftData && (
-        <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-              <h3 className="font-bold text-base text-white">Итоговая сводка за смену</h3>
-              <span className="text-xs text-slate-400">
-                Суммарный простой оборудования: <strong className="text-amber-400 font-bold">{shiftData.downtime_hours} ч</strong>
-              </span>
-            </div>
-            <button
-              onClick={handleDownloadShift}
-              disabled={exporting === 'shift'}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow"
-            >
-              <FileSpreadsheet size={14} />
-              <span>{exporting === 'shift' ? 'Экспорт...' : 'Выгрузить в Excel'}</span>
-            </button>
-          </div>
-
-          <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-700 text-xs text-slate-200 leading-relaxed">
-            <strong className="block text-emerald-400 font-bold mb-1">ИИ-Резюме смены:</strong>
-            {shiftData.summary}
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Загрузка ремонтного персонала:</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              {shiftData.load?.map((item: any) => (
-                <div key={item.worker_id} className="p-3 bg-slate-900/60 rounded-xl border border-slate-700 flex justify-between items-center">
-                  <span className="font-bold text-white">{item.name}</span>
-                  <span className="text-slate-400">{item.orders} нарядов • {Math.round(item.minutes / 60)} ч работы</span>
+                <div className="flex items-center space-x-2">
+                  <Package className="text-emerald-400" size={18} />
+                  <h3 className="font-bold text-base text-white">
+                    Контроль списания ТМЦ и отклонений от норм (Раздел 7 ТЗ)
+                  </h3>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Вкладка 4: Списание ТМЦ и отклонения от норм */}
-      {activeSubTab === 'materials' && (
-        <div className="space-y-4">
-          <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-              <div>
-                <h3 className="font-bold text-base text-white mb-1">
-                  Контроль списания ТМЦ и отклонений от норм (Раздел 7)
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Анализ фактического списания запчастей и материалов в сравнении с технологическими нормативами
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Сверка фактического расхода запчастей с технологическими нормативами и выявление перерасхода &gt;40%
                 </p>
               </div>
               <button
                 onClick={handleDownloadMaterials}
                 disabled={exporting === 'materials'}
-                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow"
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center space-x-2 shadow-lg"
               >
-                <FileSpreadsheet size={14} />
-                <span>{exporting === 'materials' ? 'Экспорт...' : 'Выгрузить в Excel'}</span>
+                <FileSpreadsheet size={15} />
+                <span>{exporting === 'materials' ? 'Экспорт...' : 'Выгрузить отчёт ТМЦ в Excel'}</span>
               </button>
             </div>
 
-            {/* Сводка KPI по материалам */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+            {/* Метрики ТМЦ */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-700">
                 <div className="text-[11px] text-slate-400 font-semibold">Номенклатурных позиций</div>
-                <div className="text-xl font-black text-white mt-0.5">{materialsData?.items?.length || 0}</div>
+                <div className="text-xl font-black text-white mt-1">{materialsData?.items?.length || 0}</div>
               </div>
-              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+              <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-700">
                 <div className="text-[11px] text-slate-400 font-semibold">Всего актов списания</div>
-                <div className="text-xl font-black text-emerald-400 mt-0.5">{materialsData?.total_writeoffs || 0}</div>
+                <div className="text-xl font-black text-emerald-400 mt-1">{materialsData?.total_writeoffs || 0}</div>
               </div>
-              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+              <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-700">
                 <div className="text-[11px] text-slate-400 font-semibold">Аномалий перерасхода (&gt;40%)</div>
-                <div className={`text-xl font-black mt-0.5 ${(materialsData?.anomalies_count || 0) > 0 ? 'text-red-400' : 'text-slate-200'}`}>
+                <div className={`text-xl font-black mt-1 ${(materialsData?.anomalies_count || 0) > 0 ? 'text-red-400' : 'text-slate-200'}`}>
                   {materialsData?.anomalies_count || 0}
                 </div>
               </div>
@@ -11584,7 +11724,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ viewMode = '
             {/* Таблица списаний */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] border-b border-slate-700">
+                <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] border-b border-slate-700">
                   <tr>
                     <th className="py-2.5 px-3">Материал / ТМЦ</th>
                     <th className="py-2.5 px-3 text-center">Ед. изм.</th>
@@ -11592,7 +11732,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ viewMode = '
                     <th className="py-2.5 px-3 text-right">По норме</th>
                     <th className="py-2.5 px-3 text-center">Отклонение</th>
                     <th className="py-2.5 px-3 text-center">Нарядов</th>
-                    <th className="py-2.5 px-3 text-center">Перерасходов</th>
+                    <th className="py-2.5 px-3 text-center">Превышений</th>
                     <th className="py-2.5 px-3">Статус</th>
                   </tr>
                 </thead>
@@ -11639,9 +11779,336 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ viewMode = '
             </div>
 
           </div>
-        </div>
+        </>
       )}
+    </div>
+  );
+};
+```
 
+---
+
+### Файл: `frontend/src/pages/RatingShiftView.tsx`
+
+```tsx
+import React, { useState, useEffect } from 'react';
+import { api } from '../api';
+import { 
+  Award, FileText, FileSpreadsheet, Users, Clock, 
+  TrendingUp, CheckCircle, AlertTriangle, ShieldCheck, RefreshCw, BarChart2
+} from 'lucide-react';
+
+export const RatingShiftView: React.FC = () => {
+  const [shiftData, setShiftData] = useState<any>(null);
+  const [ratingData, setRatingData] = useState<any>(null);
+  const [brigadesData, setBrigadesData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<string | null>(null);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [sh, rate, brig] = await Promise.all([
+        api.getShiftReport(),
+        api.getRating(),
+        api.getBrigadesRating(30),
+      ]);
+      setShiftData(sh);
+      setRatingData(rate);
+      setBrigadesData(brig || []);
+    } catch (err) {
+      console.error('Error loading shift and rating data', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleDownloadShift = async () => {
+    setExporting('shift');
+    try {
+      await api.downloadShiftExcel();
+    } catch (err: any) {
+      alert(err.message || 'Ошибка выгрузки сменного отчёта');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleDownloadRating = async () => {
+    setExporting('rating');
+    try {
+      await api.downloadRatingExcel(30);
+    } catch (err: any) {
+      alert(err.message || 'Ошибка выгрузки рейтинга');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Шапка страницы смены и рейтингов */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl">
+        <div>
+          <div className="flex items-center space-x-2">
+            <h2 className="text-xl font-bold text-white flex items-center space-x-2">
+              <Award className="text-emerald-400" size={22} />
+              <span>Сменный рапорт и рейтинг персонала</span>
+            </h2>
+            <span className="text-xs bg-emerald-950 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-800 font-bold">
+              Раздел 6.5 & 6.6
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Оперативная сводка текущей смены, MTTR, дисциплина слесарей и соревнование ремонтных бригад
+          </p>
+        </div>
+
+        {/* Кнопки экспорта и обновления */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleDownloadShift}
+            disabled={exporting === 'shift'}
+            className="px-3.5 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-xs font-bold transition flex items-center space-x-2 border border-slate-600 shadow"
+          >
+            <FileSpreadsheet size={15} className="text-emerald-400" />
+            <span>{exporting === 'shift' ? 'Экспорт...' : 'Сменный рапорт (Excel)'}</span>
+          </button>
+          <button
+            onClick={handleDownloadRating}
+            disabled={exporting === 'rating'}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center space-x-2 shadow-lg"
+          >
+            <FileSpreadsheet size={15} />
+            <span>{exporting === 'rating' ? 'Экспорт...' : 'Рейтинг рабочих (Excel)'}</span>
+          </button>
+          <button
+            onClick={loadData}
+            title="Обновить"
+            className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-xl transition border border-slate-600"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-16 text-emerald-400 font-bold animate-pulse flex flex-col items-center justify-center space-y-3">
+          <Award className="animate-spin text-emerald-400" size={32} />
+          <span>Сбор показателей смены и перерасчет рейтинга бригад...</span>
+        </div>
+      ) : (
+        <>
+          {/* Секция 1: Показатели эффективности текущей смены (KPI) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
+              <div className="text-xs text-slate-400 font-semibold flex items-center space-x-1.5">
+                <Clock size={13} className="text-emerald-400" />
+                <span>MTTR (Ср. время ремонта)</span>
+              </div>
+              <div className="text-2xl font-black text-white mt-1">
+                {shiftData?.avg_mttr_hours ? `${shiftData.avg_mttr_hours} ч` : '—'}
+              </div>
+              <div className="text-[11px] text-emerald-400/90 mt-0.5">Норматив соблюдается</div>
+            </div>
+
+            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
+              <div className="text-xs text-slate-400 font-semibold flex items-center space-x-1.5">
+                <TrendingUp size={13} className="text-blue-400" />
+                <span>Время реакции слесаря</span>
+              </div>
+              <div className="text-2xl font-black text-blue-300 mt-1">
+                {shiftData?.avg_reaction_min ? `${shiftData.avg_reaction_min} мин` : '—'}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">От назначения до старта</div>
+            </div>
+
+            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
+              <div className="text-xs text-slate-400 font-semibold flex items-center space-x-1.5">
+                <ShieldCheck size={13} className="text-emerald-400" />
+                <span>First-Time-Fix Rate</span>
+              </div>
+              <div className="text-2xl font-black text-emerald-400 mt-1">
+                {shiftData?.first_time_fix_rate ? `${shiftData.first_time_fix_rate}%` : '—'}
+              </div>
+              <div className="text-[11px] text-emerald-500/80 mt-0.5">Сдано без замечаний</div>
+            </div>
+
+            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
+              <div className="text-xs text-slate-400 font-semibold flex items-center space-x-1.5">
+                <AlertTriangle size={13} className="text-amber-400" />
+                <span>Простой оборудования</span>
+              </div>
+              <div className="text-2xl font-black text-amber-400 mt-1">
+                {shiftData?.downtime_hours ? `${shiftData.downtime_hours} ч` : '0 ч'}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">В текущую смену</div>
+            </div>
+          </div>
+
+          {/* ИИ-Резюме текущей смены */}
+          {shiftData?.summary && (
+            <div className="p-4 bg-slate-800/90 rounded-2xl border border-slate-700 shadow-md">
+              <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs mb-1">
+                <FileText size={15} />
+                <span>ИИ-Резюме текущей смены:</span>
+              </div>
+              <p className="text-xs text-slate-200 leading-relaxed">
+                {shiftData.summary}
+              </p>
+            </div>
+          )}
+
+          {/* Секция 2: Рейтинг ремонтных бригад (Раздел 6.6 ТЗ) */}
+          <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <Users className="text-emerald-400" size={18} />
+                  <h3 className="font-bold text-base text-white">
+                    Рейтинг ремонтных бригад (Раздел 6.6 ТЗ)
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Сравнительный KPI бригад по качеству ремонтов, срокам и объёму закрытых нарядов
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] border-b border-slate-700">
+                  <tr>
+                    <th className="py-2.5 px-3 text-center">Место</th>
+                    <th className="py-2.5 px-3">Бригада</th>
+                    <th className="py-2.5 px-3 text-center">Состав</th>
+                    <th className="py-2.5 px-3 text-center">Закрыто нарядов</th>
+                    <th className="py-2.5 px-3 text-center">В срок</th>
+                    <th className="py-2.5 px-3 text-center">На доработку</th>
+                    <th className="py-2.5 px-3 text-center">Балл KPI</th>
+                    <th className="py-2.5 px-3">Оценка</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/60 font-medium">
+                  {brigadesData?.map((brigade: any) => (
+                    <tr key={brigade.id} className="hover:bg-slate-750 transition">
+                      <td className="py-3 px-3 text-center font-black text-sm">
+                        {brigade.place === 1 ? '🥇 1' : brigade.place === 2 ? '🥈 2' : brigade.place === 3 ? '🥉 3' : `#${brigade.place}`}
+                      </td>
+                      <td className="py-3 px-3 font-bold text-white text-sm">{brigade.name}</td>
+                      <td className="py-3 px-3 text-center text-slate-400">{brigade.workers_count} чел</td>
+                      <td className="py-3 px-3 text-center font-bold text-slate-200">{brigade.orders_closed}</td>
+                      <td className="py-3 px-3 text-center text-emerald-400 font-bold">{brigade.on_time_percent}%</td>
+                      <td className="py-3 px-3 text-center font-bold text-amber-400">{brigade.rework_count}</td>
+                      <td className="py-3 px-3 text-center">
+                        <span className="px-3 py-1 rounded-lg bg-emerald-950 border border-emerald-800 text-emerald-300 font-black text-sm">
+                          {brigade.score}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-xs text-slate-400">{brigade.explanation}</td>
+                    </tr>
+                  ))}
+                  {(!brigadesData || brigadesData.length === 0) && (
+                    <tr>
+                      <td colSpan={8} className="py-6 text-center text-slate-500">
+                        Данные о бригадах отсутствуют
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Секция 3: Индивидуальный рейтинг исполнителей смены */}
+          <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl space-y-4">
+            <div>
+              <div className="flex items-center space-x-2">
+                <Award className="text-emerald-400" size={18} />
+                <h3 className="font-bold text-base text-white">
+                  Индивидуальный рейтинг слесарей (Лидерборд смены)
+                </h3>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Формула расчёта: <strong className="text-slate-300">0.35·Качество + 0.25·Сроки + 0.20·(100 - Повторы) + 0.15·Объём + 0.05·(100 - Отказы)</strong>
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] border-b border-slate-700">
+                  <tr>
+                    <th className="py-2.5 px-3 text-center">Место</th>
+                    <th className="py-2.5 px-3">Сотрудник</th>
+                    <th className="py-2.5 px-3">Специальность</th>
+                    <th className="py-2.5 px-3 text-center">Итоговый балл</th>
+                    <th className="py-2.5 px-3 text-center">Качество</th>
+                    <th className="py-2.5 px-3 text-center">В срок</th>
+                    <th className="py-2.5 px-3 text-center">Повторные отказы</th>
+                    <th className="py-2.5 px-3 text-center">Закрыто нарядов</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/60 font-medium">
+                  {ratingData?.rows?.map((row: any) => {
+                    const isHighDefect = row.repeat_failures > 5;
+                    return (
+                      <tr key={row.id} className={isHighDefect ? 'bg-red-950/20 hover:bg-red-950/30' : 'hover:bg-slate-750'}>
+                        <td className="py-3 px-3 text-center font-black text-sm text-slate-400">
+                          {row.place === 1 ? '🥇 1' : row.place === 2 ? '🥈 2' : row.place === 3 ? '🥉 3' : `#${row.place}`}
+                        </td>
+                        <td className="py-3 px-3 font-bold text-white flex items-center space-x-2">
+                          <span>{row.full_name}</span>
+                          {isHighDefect && (
+                            <span className="text-[10px] bg-red-900 text-red-200 px-1.5 py-0.5 rounded font-bold">
+                              Брак 70.6%
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-slate-400">{row.specialty}</td>
+                        <td className="py-3 px-3 text-center">
+                          <span className={`px-2.5 py-1 rounded-lg border font-black text-sm ${
+                            isHighDefect 
+                              ? 'bg-amber-950 border-amber-800 text-amber-300' 
+                              : 'bg-emerald-950 border-emerald-800 text-emerald-300'
+                          }`}>
+                            {row.rating}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center text-slate-200">{row.components?.quality ?? '—'}</td>
+                        <td className="py-3 px-3 text-center text-slate-200">{row.components?.on_time ?? '—'}%</td>
+                        <td className="py-3 px-3 text-center font-bold text-amber-400">{row.repeat_failures}</td>
+                        <td className="py-3 px-3 text-center font-semibold text-slate-300">{row.orders_closed}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Секция 4: Загрузка персонала в смене */}
+          {shiftData?.load && shiftData.load.length > 0 && (
+            <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl space-y-3">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+                <BarChart2 size={14} className="text-emerald-400" />
+                <span>Загрузка ремонтного персонала в смене:</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-xs">
+                {shiftData.load.map((item: any) => (
+                  <div key={item.worker_id} className="p-3 bg-slate-900/70 rounded-xl border border-slate-700 flex justify-between items-center shadow">
+                    <span className="font-bold text-white">{item.name}</span>
+                    <span className="text-slate-400">{item.orders} нарядов • {Math.round(item.minutes / 60)} ч работы</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };
@@ -12375,6 +12842,200 @@ def main():
     print(f"   • Общий объём текста: {total_chars:,} символов ({total_chars / 1024 / 1024:.2f} МБ)")
     print(f"   • Примерно токенов: ~{approx_tokens:,} токенов")
     print(f"   • Доля в окне Gemini 1.5 Pro / 2.0 (1M токенов): ~{(approx_tokens / 1_000_000) * 100:.1f}%")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+---
+
+### Файл: `scripts/generate_app_with_gemini.py`
+
+```python
+#!/usr/bin/env python3
+"""
+Автоматический генератор приложений на базе кодовой базы «НарядAI» и Google AI Studio (Gemini API).
+
+Использование:
+  export GEMINI_API_KEY="AIzaSy..."
+  python scripts/generate_app_with_gemini.py --target telegram
+  python scripts/generate_app_with_gemini.py --target flutter
+  python scripts/generate_app_with_gemini.py --target kotlin
+  python scripts/generate_app_with_gemini.py --target 1c
+"""
+import argparse
+import json
+import os
+import re
+import sys
+import urllib.request
+import urllib.error
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CONTEXT_FILE = PROJECT_ROOT / "export" / "naryad_ai_full_context.md"
+PROMPTS_DIR = PROJECT_ROOT / "export" / "prompts"
+
+SYSTEM_INSTRUCTION = (
+    "Ты — ведущий промышленный архитектор ПО и Senior разработчик. "
+    "Перед тобой полный контекст кодовой базы системы «НарядAI» для АО «Костанайские Минералы». "
+    "Твоя задача — сгенерировать готовый к запуску, чистый, модульный код приложения под выбранную целевую платформу, "
+    "строго соблюдая бизнес-правила (10 статусов нарядов, офлайн-режим, фотофиксация до/после, валидация ТМЦ, "
+    "роли мастера и слесаря). Форматируй файлы так, чтобы перед каждым кодовым блоком стояла строка: "
+    "# FILE: <путь/к/файлу>"
+)
+
+TARGET_SPECS = {
+    "telegram": {
+        "title": "Telegram-бот для слесарей и мастеров (Python / aiogram 3)",
+        "prompt_file": PROMPTS_DIR / "01_telegram_bot.md",
+        "default_dir": PROJECT_ROOT / "generated" / "telegram_bot",
+    },
+    "flutter": {
+        "title": "Мобильное приложение на Flutter (Dart / Drift SQLite offline-first)",
+        "prompt_file": PROMPTS_DIR / "02_flutter_mobile_app.md",
+        "default_dir": PROJECT_ROOT / "generated" / "flutter_app",
+    },
+    "kotlin": {
+        "title": "Нативное Android-приложение (Kotlin / Jetpack Compose / Room)",
+        "prompt_file": PROMPTS_DIR / "03_kotlin_jetpack_compose.md",
+        "default_dir": PROJECT_ROOT / "generated" / "android_kotlin",
+    },
+    "1c": {
+        "title": "Модуль интеграции с 1С:ТОИР и SAP PM (FastAPI Service)",
+        "prompt_file": PROMPTS_DIR / "04_erp_integration_1c.md",
+        "default_dir": PROJECT_ROOT / "generated" / "erp_1c",
+    },
+}
+
+
+def ensure_context_exists():
+    if not CONTEXT_FILE.exists():
+        print("⚡ Файл контекста не найден. Запуск экспорта кодовой базы...")
+        from export_for_ai_studio import main as export_main
+        export_main()
+    return CONTEXT_FILE.read_text(encoding="utf-8", errors="replace")
+
+
+def call_gemini_api(api_key: str, model: str, user_prompt: str, context_text: str) -> str:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    
+    payload = {
+        "system_instruction": {
+            "parts": [{"text": SYSTEM_INSTRUCTION}]
+        },
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": f"--- КОНТЕКСТ ПРОЕКТА «НАРЯДAI» ---\n\n{context_text}\n\n--- ЗАДАЧА ---\n\n{user_prompt}"}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 8192
+        }
+    }
+
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"}
+    )
+
+    print(f"📡 Отправка запроса в Google AI Studio ({model})... Это займёт 10-30 секунд.")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            candidates = data.get("candidates", [])
+            if not candidates:
+                raise RuntimeError(f"Ответ от Gemini не содержит кандидатов: {data}")
+            parts = candidates[0].get("content", {}).get("parts", [])
+            return "".join(p.get("text", "") for p in parts)
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8")
+        raise RuntimeError(f"Ошибка Gemini API ({e.code}): {error_body}") from e
+
+
+def extract_and_save_files(text: str, output_dir: Path):
+    output_dir.mkdir(parents=True, exist_ok=True)
+    # Сохраняем полный сырой ответ от нейросети
+    raw_file = output_dir / "AI_RESPONSE.md"
+    raw_file.write_text(text, encoding="utf-8")
+    print(f"📝 Полный ответ сохранён в: {raw_file}")
+
+    # Ищем маркеры файлов: # FILE: path/to/file или // FILE: ...
+    file_pattern = re.compile(r'(?:#|//|<!--)\s*FILE:\s*([^\n\r]+?)(?:\s*-->)?\s*[\r\n]+```(?:\w+)?\s*[\r\n]+(.*?)```', re.DOTALL)
+    matches = file_pattern.findall(text)
+
+    saved_count = 0
+    for file_path_str, code_content in matches:
+        clean_path = file_path_str.strip().strip("`").strip()
+        target_path = output_dir / clean_path
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(code_content.strip() + "\n", encoding="utf-8")
+        print(f"   ✓ Создан файл: {clean_path}")
+        saved_count += 1
+
+    if saved_count == 0:
+        print("💡 Совет: файлы не были разделены автоматически по маркерам # FILE:, но полный код сохранён в AI_RESPONSE.md.")
+    else:
+        print(f"🎉 Успешно создано {saved_count} файлов в {output_dir}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Генератор приложений «НарядAI» через Google AI Studio")
+    parser.add_argument("--target", choices=list(TARGET_SPECS.keys()), default="telegram",
+                        help="Целевое приложение для генерации (telegram, flutter, kotlin, 1c)")
+    parser.add_argument("--api-key", default=os.getenv("GEMINI_API_KEY"),
+                        help="API-ключ Google AI Studio (или переменная GEMINI_API_KEY)")
+    parser.add_argument("--model", default="gemini-2.0-flash",
+                        choices=["gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.0-pro-exp"],
+                        help="Модель Gemini в Google AI Studio")
+    parser.add_argument("--output-dir", default=None,
+                        help="Каталог для сохранения сгенерированного кода")
+
+    args = parser.parse_args()
+
+    spec = TARGET_SPECS[args.target]
+    output_dir = Path(args.output_dir) if args.output_dir else spec["default_dir"]
+
+    print("======================================================================")
+    print("   Генератор приложений «НарядAI» через Google AI Studio (Gemini)")
+    print("======================================================================")
+    print(f"🎯 Цель генерации:   {spec['title']}")
+    print(f"🤖 Модель:           {args.model}")
+    print(f"📁 Папка назначения: {output_dir}")
+    print("----------------------------------------------------------------------")
+
+    if not args.api_key:
+        print("\n🔑 [ВНИМАНИЕ] Не указан API-ключ Google AI Studio (GEMINI_API_KEY)!")
+        print("Как получить бесплатный ключ за 1 минуту:")
+        print("1. Перейдите по ссылке: https://aistudio.google.com/app/apikey")
+        print("2. Нажмите 'Create API key' и скопируйте ключ (начинается на AIzaSy...)")
+        print("3. Запустите генератор с ключом:")
+        print(f"   export GEMINI_API_KEY=\"ваш_ключ\"")
+        print(f"   python scripts/generate_app_with_gemini.py --target {args.target}")
+        print("\nИЛИ откройте готовый файл с промптом для вставки в веб-интерфейс:")
+        print(f"📄 {spec['prompt_file']}\n")
+        sys.exit(1)
+
+    context_text = ensure_context_exists()
+
+    prompt_file = spec["prompt_file"]
+    if prompt_file.exists():
+        user_prompt = prompt_file.read_text(encoding="utf-8")
+    else:
+        user_prompt = f"Напиши готовое production-приложение для {spec['title']} на основе проекта «НарядAI»."
+
+    try:
+        response_text = call_gemini_api(args.api_key, args.model, user_prompt, context_text)
+        extract_and_save_files(response_text, output_dir)
+    except Exception as exc:
+        print(f"❌ Ошибка генерации: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

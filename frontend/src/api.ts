@@ -209,6 +209,7 @@ export const api = {
   getCounters: () => request<{ shift: string; issued: number; done: number; overdue: number; equipment_down: number }>('/dashboard/counters'),
   getShiftReport: (start?: string, end?: string) => request<any>('/reports/shift'),
   getRating: () => request<any>('/reports/rating'),
+  getBrigadesRating: (days: number = 30) => request<any>(`/reports/brigades?days=${days}`),
   getAnomalies: (days: number = 90) => request<any>(`/analytics/anomalies?days=${days}`),
   getMaterialsReport: (days: number = 30) => request<any>(`/reports/materials?days=${days}`),
 
