@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { User, NotificationItem } from '../types';
-import { api, getToken, setToken } from '../api';
+import { api, getToken, setToken, getWsBaseUrl } from '../api';
 import { Lang, translations } from '../utils/i18n';
+import { getOfflineQueue, subscribeOfflineQueue, syncOfflineQueue, OfflineAction } from '../utils/offlineQueue';
 
 interface AuthContextType {
   user: User | null;
@@ -20,6 +21,9 @@ interface AuthContextType {
   setLang: (lang: Lang) => void;
   t: (key: keyof typeof translations['ru']) => string;
   lastEvent: any;
+  offlineCount: number;
+  offlineQueue: OfflineAction[];
+  syncOfflineNow: () => Promise<{ synced: number; failed: number }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return localStorage.getItem('naryad_sound') !== 'false';
   });
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [offlineQueue, setOfflineQueue] = useState<OfflineAction[]>(() => getOfflineQueue());
   const [lang, setLangState] = useState<Lang>(() => {
     return (localStorage.getItem('naryad_lang') as Lang) || 'ru';
   });
@@ -55,6 +60,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const dict = translations[lang] || translations['ru'];
     return (dict as any)[key] || (translations['ru'] as any)[key] || key;
   }, [lang]);
+
+  // Офлайн-очередь подписка
+  useEffect(() => {
+    return subscribeOfflineQueue((q) => {
+      setOfflineQueue(q);
+    });
+  }, []);
 
   // Online / Offline tracking
   useEffect(() => {
@@ -130,6 +142,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser();
   }, [refreshUser]);
 
+  const syncOfflineNow = useCallback(async () => {
+    const res = await syncOfflineQueue(api.applyActionDirect);
+    if (res.synced > 0) {
+      await refreshUser();
+    }
+    return res;
+  }, [refreshUser]);
+
+  // Фоновая синхронизация при возвращении сети online
+  useEffect(() => {
+    if (isOnline && offlineQueue.length > 0) {
+      syncOfflineNow();
+    }
+  }, [isOnline, offlineQueue.length, syncOfflineNow]);
+
   // WebSocket Connection
   useEffect(() => {
     const token = getToken();
@@ -141,8 +168,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${proto}//${window.location.host}/ws?token=${token}`;
+    const wsBase = getWsBaseUrl();
+    const wsUrl = `${wsBase}/ws?token=${token}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -207,6 +234,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLang,
       t,
       lastEvent,
+      offlineCount: offlineQueue.length,
+      offlineQueue,
+      syncOfflineNow,
     }}>
       {children}
     </AuthContext.Provider>

@@ -67,50 +67,53 @@ def check_deadlines() -> int:
     with SessionLocal() as db:
         orders = db.scalars(select(WorkOrder).where(WorkOrder.status.in_(list(TRACKED)))).all()
         for o in orders:
-            # 3. эскалация: не принят вовремя
-            if o.status == Status.issued and not o.escalated_at:
-                timeout = ACCEPT_TIMEOUT_EMERGENCY_MIN if o.priority == Priority.emergency else ACCEPT_TIMEOUT_MIN
-                if now - o.created_at >= timedelta(minutes=timeout):
-                    alt = suggest_assignees(db, o.equipment_id, o.description,
-                                            exclude_ids={o.assignee_id} if o.assignee_id else set(), limit=1)
-                    alt_txt = (f" Предлагаем: {alt[0]['short_name']} ({alt[0]['live']['label'].lower()})."
-                               if alt else "")
-                    notify(db, o.master, "escalation", f"Наряд №{o.number} не принят за {timeout} мин",
-                           f"{o.equipment.name}, исполнитель "
-                           f"{short_name(o.assignee.full_name) if o.assignee else '—'} не отвечает.{alt_txt}",
-                           order_id=o.id, urgent=True)
-                    o.escalated_at = now
+            try:
+                # 3. эскалация: не принят вовремя
+                if o.status == Status.issued and not o.escalated_at:
+                    timeout = ACCEPT_TIMEOUT_EMERGENCY_MIN if o.priority == Priority.emergency else ACCEPT_TIMEOUT_MIN
+                    if now - o.created_at >= timedelta(minutes=timeout):
+                        alt = suggest_assignees(db, o.equipment_id, o.description,
+                                                exclude_ids={o.assignee_id} if o.assignee_id else set(), limit=1)
+                        alt_txt = (f" Предлагаем: {alt[0]['short_name']} ({alt[0]['live']['label'].lower()})."
+                                   if alt else "")
+                        notify(db, o.master, "escalation", f"Наряд №{o.number} не принят за {timeout} мин",
+                               f"{o.equipment.name}, исполнитель "
+                               f"{short_name(o.assignee.full_name) if o.assignee else '—'} не отвечает.{alt_txt}",
+                               order_id=o.id, urgent=True)
+                        o.escalated_at = now
+                        sent += 1
+
+                if not o.assignee:
+                    continue
+                left = (o.deadline - now).total_seconds() / 60
+
+                # 1. напоминание до срока
+                if 0 < left <= REMIND_BEFORE_MIN and not o.reminded_at:
+                    notify(db, o.assignee, "reminder", f"До срока наряда №{o.number} — {_fmt(left)}",
+                           f"{o.equipment.name}, {o.section.name.lower()}. Срок: {o.deadline:%H:%M}",
+                           order_id=o.id)
+                    o.reminded_at = now
                     sent += 1
 
-            if not o.assignee:
-                continue
-            left = (o.deadline - now).total_seconds() / 60
+                # 2. просрочка (с повтором)
+                if left <= 0 and (not o.overdue_notified_at or
+                                  now - o.overdue_notified_at >= timedelta(minutes=OVERDUE_REPEAT_MIN)):
+                    text = overdue_message(o, now)
+                    title = f"Просрочка: наряд №{o.number}"
+                    notify(db, o.assignee, "overdue", title, text, order_id=o.id, urgent=True)
+                    notify(db, o.master, "overdue", title, text, order_id=o.id, urgent=True)
+                    o.overdue_notified_at = now
+                    sent += 2
 
-            # 1. напоминание до срока
-            if 0 < left <= REMIND_BEFORE_MIN and not o.reminded_at:
-                notify(db, o.assignee, "reminder", f"До срока наряда №{o.number} — {_fmt(left)}",
-                       f"{o.equipment.name}, {o.section.name.lower()}. Срок: {o.deadline:%H:%M}",
-                       order_id=o.id)
-                o.reminded_at = now
-                sent += 1
-
-            # 2. просрочка (с повтором)
-            if left <= 0 and (not o.overdue_notified_at or
-                              now - o.overdue_notified_at >= timedelta(minutes=OVERDUE_REPEAT_MIN)):
-                text = overdue_message(o, now)
-                title = f"Просрочка: наряд №{o.number}"
-                notify(db, o.assignee, "overdue", title, text, order_id=o.id, urgent=True)
-                notify(db, o.master, "overdue", title, text, order_id=o.id, urgent=True)
-                o.overdue_notified_at = now
-                sent += 2
-
-            # 4. длительная просрочка → руководителю
-            if left <= -MANAGER_AFTER_MIN and not o.manager_notified_at:
-                for m in db.scalars(select(Employee).where(Employee.role == Role.manager)):
-                    notify(db, m, "overdue_long", f"Длительная просрочка: наряд №{o.number}",
-                           overdue_message(o, now), order_id=o.id)
-                    sent += 1
-                o.manager_notified_at = now
+                # 4. длительная просрочка → руководителю
+                if left <= -MANAGER_AFTER_MIN and not o.manager_notified_at:
+                    for m in db.scalars(select(Employee).where(Employee.role == Role.manager)):
+                        notify(db, m, "overdue_long", f"Длительная просрочка: наряд №{o.number}",
+                               overdue_message(o, now), order_id=o.id)
+                        sent += 1
+                    o.manager_notified_at = now
+            except Exception as exc:
+                log.warning("Ошибка обработки дедлайна наряда №%s: %s", getattr(o, 'number', o.id), exc)
         db.commit()
     return sent
 

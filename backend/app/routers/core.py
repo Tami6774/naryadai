@@ -24,17 +24,43 @@ from ..services import reports
 from ..services.events import broadcast
 from ..services.workers import workers_with_status
 
+import time
+from collections import defaultdict
+
 router = APIRouter(prefix="/api", tags=["core"])
 staff_view = require_roles(Role.master, Role.manager, Role.admin)
+
+# In-memory защита от подбора ПИН-кода: не более 5 попыток за 60 секунд на один логин
+_login_failures: dict[str, list[float]] = defaultdict(list)
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_WINDOW_SEC = 60
 
 
 # ---------------------------------------------------------------- auth
 
 @router.post("/auth/login")
 def login(data: LoginIn, db: Session = Depends(get_db)):
-    user = db.scalar(select(Employee).where(Employee.login == data.login.strip().lower()))
+    clean_login = data.login.strip().lower()
+    now_ts = time.time()
+    
+    # Очищаем устаревшие попытки
+    attempts = [t for t in _login_failures[clean_login] if now_ts - t < LOCKOUT_WINDOW_SEC]
+    _login_failures[clean_login] = attempts
+    
+    if len(attempts) >= MAX_LOGIN_ATTEMPTS:
+        wait_sec = int(LOCKOUT_WINDOW_SEC - (now_ts - attempts[0])) + 1
+        raise HTTPException(
+            429, 
+            f"Слишком много неудачных попыток входа. Подождите {wait_sec} сек."
+        )
+    
+    user = db.scalar(select(Employee).where(Employee.login == clean_login))
     if not user or not verify_pin(data.pin, user.pin_hash):
+        _login_failures[clean_login].append(now_ts)
         raise HTTPException(401, "Неверный логин или ПИН-код")
+        
+    # Сброс счетчика при успешном входе
+    _login_failures.pop(clean_login, None)
     return {"token": create_token(user), "user": employee_out(user)}
 
 

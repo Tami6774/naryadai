@@ -199,6 +199,29 @@ class TestOrderLifecycle(unittest.TestCase):
         self.db.refresh(o2)
         self.assertEqual(o2.status, Status.accepted)
 
+    def test_z_create_order_retry_on_collision(self):
+        # Проверяем, что при коллизии уникального номера срабатывает retry через savepoint
+        calls = 0
+        orig_next = svc.next_number
+
+        def mock_next(db):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return 1  # уже существует в БД
+            return orig_next(db)
+
+        try:
+            svc.next_number = mock_next
+            o = svc.create_order(self.db, self.master, OrderCreate(
+                work_type=WorkType.planned, description="Retry order", equipment_id=self.equipment.id,
+                assignee_id=self.worker1.id, priority=Priority.normal, deadline=datetime.now() + timedelta(hours=4)
+            ))
+            self.assertIsNotNone(o)
+            self.assertGreater(calls, 1)
+        finally:
+            svc.next_number = orig_next
+
 
 if __name__ == "__main__":
     unittest.main()

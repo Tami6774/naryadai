@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 export const WorkerView: React.FC = () => {
-  const { user, lastEvent } = useAuth();
+  const { user, lastEvent, offlineCount, syncOfflineNow } = useAuth();
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [ratingData, setRatingData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -23,6 +23,7 @@ export const WorkerView: React.FC = () => {
   const [pauseReasonModal, setPauseReasonModal] = useState<number | null>(null);
   const [reasonInput, setReasonInput] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
 
   const fetchWorkerData = useCallback(async () => {
     if (!user) return;
@@ -52,12 +53,18 @@ export const WorkerView: React.FC = () => {
 
   const handleAction = async (orderId: number, action: string, reason?: string) => {
     setActionLoading(true);
+    setOfflineNotice(null);
     try {
-      await api.applyAction(orderId, action, reason);
+      const res: any = await api.applyAction(orderId, action, reason);
       setRejectReasonModal(null);
       setPauseReasonModal(null);
       setReasonInput('');
-      await fetchWorkerData();
+      if (res?.__offline) {
+        setOfflineNotice('Действие сохранено офлайн и будет передано при восстановлении связи');
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: res.status } : o));
+      } else {
+        await fetchWorkerData();
+      }
     } catch (err: any) {
       alert(err.message || 'Ошибка выполнения действия');
     } finally {
@@ -120,6 +127,44 @@ export const WorkerView: React.FC = () => {
 
       {activeTab === 'orders' ? (
         <>
+          {/* Уведомление об офлайн-сохранении */}
+          {offlineNotice && (
+            <div className="p-3 bg-amber-950/80 border border-amber-500 rounded-2xl flex items-center justify-between text-xs text-amber-200">
+              <span>📴 {offlineNotice}</span>
+              <button
+                type="button"
+                onClick={() => setOfflineNotice(null)}
+                className="text-amber-400 hover:text-white font-bold px-2 py-0.5"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Плашка накопленной офлайн-очереди */}
+          {offlineCount > 0 && (
+            <div className="bg-amber-950/70 border border-amber-600/80 p-3 rounded-2xl flex items-center justify-between shadow text-xs">
+              <div className="flex items-center space-x-2 text-amber-200">
+                <span className="text-base">📴</span>
+                <div>
+                  <span className="font-bold">Офлайн-режим:</span> сохранено {offlineCount} действий в памяти устройства.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  const res = await syncOfflineNow();
+                  if (res.synced > 0) {
+                    await fetchWorkerData();
+                  }
+                }}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition shadow text-xs"
+              >
+                Синхронизировать
+              </button>
+            </div>
+          )}
+
           {/* Главный блок: Текущий активный наряд */}
           {currentOrder ? (
             <div className={`p-5 rounded-2xl border shadow-xl space-y-4 transition ${

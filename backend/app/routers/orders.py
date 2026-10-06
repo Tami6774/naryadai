@@ -6,6 +6,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..auth import _bearer, current_user, decode_token, require_roles
+from ..config import MEDIA_DIR
 from ..db import get_db
 from ..models import (
     PRIORITY_ORDER,
@@ -174,8 +175,11 @@ def master_score(order_id: int, data: MasterScoreIn, db: Session = Depends(get_d
     return order_full(_load(db, order_id))
 
 
+MAX_PHOTO_BYTES = 10 * 1024 * 1024  # 10 МБ
+
+
 @router.post("/{order_id}/photos")
-def upload_photo(
+async def upload_photo(
     order_id: int,
     kind: PhotoKind = Form(...),
     file: UploadFile = File(...),
@@ -188,11 +192,29 @@ def upload_photo(
         raise HTTPException(403, "Фото неисправности добавляет мастер")
     if sum(1 for p in o.photos if p.kind == kind) >= MAX_PHOTOS:
         raise HTTPException(400, f"Не более {MAX_PHOTOS} фото")
-    data = file.file.read()
+    
+    # Потоковое чтение с защитой от переполнения памяти (OOM)
+    data = bytearray()
+    while chunk := await file.read(64 * 1024):
+        data.extend(chunk)
+        if len(data) > MAX_PHOTO_BYTES:
+            raise HTTPException(413, "Размер фотографии не должен превышать 10 МБ")
+    
+    if len(data) == 0:
+        raise HTTPException(400, "Файл изображения пуст")
+        
+    raw_bytes = bytes(data)
+    # Проверка magic bytes (JPEG / PNG / WEBP)
+    is_jpeg = raw_bytes.startswith(b"\xff\xd8\xff")
+    is_png = raw_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+    is_webp = raw_bytes.startswith(b"RIFF") and b"WEBP" in raw_bytes[:16]
+    if not (is_jpeg or is_png or is_webp):
+        raise HTTPException(400, "Допустимы только форматы JPEG, PNG, WEBP")
+        
     try:
-        rel_path, taken_at, phash = save_photo(data, o.id)
+        rel_path, taken_at, phash = save_photo(raw_bytes, o.id)
     except Exception:
-        raise HTTPException(400, "Не удалось прочитать изображение")
+        raise HTTPException(400, "Не удалось обработать изображение")
     p = Photo(order_id=o.id, kind=kind, file_path=rel_path, taken_at=taken_at,
               author_id=user.id, phash=phash)
     db.add(p)
@@ -210,6 +232,16 @@ def delete_photo(order_id: int, photo_id: int, db: Session = Depends(get_db),
         raise HTTPException(404, "Фото не найдено")
     if p.author_id != user.id and user.role not in (Role.master, Role.admin):
         raise HTTPException(403, "Можно удалить только своё фото")
+    
+    # Физическое удаление файла с диска для исключения накопления мусора
+    if p.file_path:
+        disk_file = MEDIA_DIR / p.file_path
+        try:
+            if disk_file.is_file():
+                disk_file.unlink()
+        except Exception:
+            pass
+            
     db.delete(p)
     db.commit()
     return {"ok": True}

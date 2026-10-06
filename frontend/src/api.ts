@@ -1,6 +1,43 @@
 import { WorkOrder, User, NotificationItem, AssistantResponse, Priority } from './types';
+import { saveOfflineAction } from './utils/offlineQueue';
 
-const API_BASE = '/api';
+export function getApiBaseUrl(): string {
+  const host = localStorage.getItem('naryad_api_host');
+  if (host && host.trim()) {
+    return host.trim().replace(/\/+$/, '');
+  }
+  // В мобильном окружении Capacitor по умолчанию обращаемся к локальному шлюзу
+  if (typeof window !== 'undefined') {
+    if (window.location.protocol === 'capacitor:' || (window.location.hostname === 'localhost' && !['5173', '8000'].includes(window.location.port))) {
+      return 'http://10.42.0.1:8000';
+    }
+  }
+  return '';
+}
+
+export function setApiHost(host: string | null): void {
+  if (host && host.trim()) {
+    localStorage.setItem('naryad_api_host', host.trim().replace(/\/+$/, ''));
+  } else {
+    localStorage.removeItem('naryad_api_host');
+  }
+}
+
+export function getWsBaseUrl(): string {
+  const base = getApiBaseUrl();
+  if (base) {
+    const wsProto = base.startsWith('https://') ? 'wss://' : 'ws://';
+    return base.replace(/^https?:\/\//, wsProto);
+  }
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}`;
+}
+
+export function getFullApiUrl(endpoint: string): string {
+  const base = getApiBaseUrl();
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${base}/api${cleanEndpoint}`;
+}
 
 export function getToken(): string | null {
   return localStorage.getItem('naryad_token');
@@ -24,7 +61,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+  const url = getFullApiUrl(endpoint);
+  const res = await fetch(url, {
     ...options,
     headers,
   });
@@ -87,17 +125,47 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ equipment_id, description }),
     }),
-  applyAction: (id: number, action: string, reason?: string, comment?: string, closing?: any) =>
+
+  // Direct action (без авто-очереди, для выполнения очереди синхронизации)
+  applyActionDirect: (id: number, action: string, reason?: string, comment?: string, closing?: any) =>
     request<WorkOrder>(`/orders/${id}/action`, {
       method: 'POST',
       body: JSON.stringify({ action, reason, comment, closing }),
     }),
+
+  // Action с поддержкой офлайн-режима
+  applyAction: async (id: number, action: string, reason?: string, comment?: string, closing?: any) => {
+    try {
+      return await request<WorkOrder>(`/orders/${id}/action`, {
+        method: 'POST',
+        body: JSON.stringify({ action, reason, comment, closing }),
+      });
+    } catch (err: any) {
+      // При отсутствии сети или сетевом сбое (Failed to fetch) сохраняем в офлайн-очередь
+      if (!navigator.onLine || err?.name === 'TypeError' || err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError')) {
+        saveOfflineAction({
+          orderId: id,
+          action,
+          reason,
+          comment,
+          closing,
+        });
+        return {
+          id,
+          status: action === 'complete' ? 'done' : action === 'accept' ? 'accepted' : action === 'start' ? 'in_progress' : action === 'pause' ? 'paused' : action === 'queue' ? 'queued' : 'issued',
+          __offline: true,
+        } as any;
+      }
+      throw err;
+    }
+  },
+
   uploadPhoto: async (orderId: number, kind: 'before' | 'after', file: File) => {
     const token = getToken();
     const formData = new FormData();
     formData.append('kind', kind);
     formData.append('file', file);
-    const res = await fetch(`${API_BASE}/orders/${orderId}/photos`, {
+    const res = await fetch(getFullApiUrl(`/orders/${orderId}/photos`), {
       method: 'POST',
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -159,13 +227,13 @@ export const api = {
     }),
   getOrderPrintUrl: (orderId: number) => {
     const token = getToken();
-    return `${API_BASE}/orders/${orderId}/print${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    return `${getFullApiUrl(`/orders/${orderId}/print`)}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
   },
 
   // Excel Downloads
   downloadShiftExcel: async () => {
     const token = getToken();
-    const res = await fetch(`${API_BASE}/reports/shift/export/excel`, {
+    const res = await fetch(getFullApiUrl('/reports/shift/export/excel'), {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error('Ошибка выгрузки отчёта за смену');
@@ -181,7 +249,7 @@ export const api = {
   },
   downloadRatingExcel: async (days: number = 30) => {
     const token = getToken();
-    const res = await fetch(`${API_BASE}/reports/rating/export/excel?days=${days}`, {
+    const res = await fetch(getFullApiUrl(`/reports/rating/export/excel?days=${days}`), {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error('Ошибка выгрузки рейтинга');
@@ -197,7 +265,7 @@ export const api = {
   },
   downloadMaterialsExcel: async (days: number = 30) => {
     const token = getToken();
-    const res = await fetch(`${API_BASE}/reports/materials/export/excel?days=${days}`, {
+    const res = await fetch(getFullApiUrl(`/reports/materials/export/excel?days=${days}`), {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error('Ошибка выгрузки списания ТМЦ');

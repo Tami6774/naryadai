@@ -13,7 +13,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => {
   const { 
     user, quickSwitch, logout, notifications, unreadCount,
-    soundEnabled, toggleSound, playAlertSound, isOnline, lang, setLang, t
+    soundEnabled, toggleSound, playAlertSound, isOnline, lang, setLang, t,
+    offlineCount, syncOfflineNow
   } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSwitchMenu, setShowSwitchMenu] = useState(false);
@@ -94,6 +95,18 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                 {isOnline ? <Wifi size={13} className="text-emerald-400" /> : <WifiOff size={13} className="text-red-400" />}
                 <span className="hidden xl:inline">{isOnline ? t('online') : t('offline')}</span>
               </div>
+
+              {/* Очередь офлайн-действий */}
+              {offlineCount > 0 && (
+                <button
+                  onClick={() => syncOfflineNow()}
+                  className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-950/80 border border-amber-500 text-amber-200 hover:bg-amber-900 transition shadow animate-pulse"
+                  title="Есть сохранённые офлайн-действия. Нажмите для синхронизации с сервером"
+                >
+                  <RefreshCw size={12} className="text-amber-400" />
+                  <span>{offlineCount} {lang === 'kz' ? 'офлайн' : 'офлайн'}</span>
+                </button>
+              )}
 
               {/* Переключатель звука + тест звука */}
               <div className="flex items-center bg-slate-700/60 rounded-lg border border-slate-600">

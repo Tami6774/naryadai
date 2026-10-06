@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Wrench, BarChart2, Key, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Shield, Wrench, BarChart2, Key, AlertTriangle, ArrowRight, Settings } from 'lucide-react';
+import { getApiBaseUrl, setApiHost } from '../api';
 
 export const LoginPage: React.FC = () => {
   const { login, quickSwitch } = useAuth();
@@ -8,6 +9,9 @@ export const LoginPage: React.FC = () => {
   const [pinInput, setPinInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [serverHost, setServerHost] = useState(() => getApiBaseUrl() || '');
+  const [isEditingHost, setIsEditingHost] = useState(false);
+  const [customHostInput, setCustomHostInput] = useState(() => getApiBaseUrl() || 'http://10.42.0.1:8000');
 
   const demoAccounts = [
     { login: 'master1', name: 'Исмаилов Марат', role: 'Мастер смены', icon: Shield, color: 'text-emerald-400' },
@@ -126,6 +130,78 @@ export const LoginPage: React.FC = () => {
             >
               <span>📲 Скачать установочный APK (Android)</span>
             </a>
+          </div>
+
+          {/* Настройка адреса сервера API (для мобильного приложения / Wi-Fi) */}
+          <div className="pt-3 border-t border-slate-700/60 text-xs">
+            {isEditingHost ? (
+              <div className="space-y-2 bg-slate-900/90 p-3 rounded-xl border border-slate-700">
+                <label className="text-slate-300 font-semibold block text-[11px]">
+                  Адрес сервера API:
+                </label>
+                <input
+                  type="text"
+                  value={customHostInput}
+                  onChange={(e) => setCustomHostInput(e.target.value)}
+                  placeholder="Например: http://10.42.0.1:8000"
+                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                />
+                <div className="flex justify-between items-center pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomHostInput('');
+                      setApiHost(null);
+                      setServerHost('');
+                      setIsEditingHost(false);
+                    }}
+                    className="text-[10px] text-slate-500 hover:text-slate-300 underline"
+                  >
+                    Сбросить (авто)
+                  </button>
+                  <div className="flex space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingHost(false)}
+                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setApiHost(customHostInput);
+                        setServerHost(customHostInput);
+                        setIsEditingHost(false);
+                      }}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs"
+                    >
+                      Сохранить
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between text-slate-400 px-1">
+                <span className="truncate text-[11px] flex items-center space-x-1">
+                  <Settings size={12} className="text-slate-500" />
+                  <span>Сервер:</span>
+                  <span className="font-mono text-slate-300 truncate max-w-[170px]">
+                    {serverHost || 'авто (текущий хост)'}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomHostInput(getApiBaseUrl() || (window.location.origin.includes('localhost') ? 'http://10.42.0.1:8000' : window.location.origin));
+                    setIsEditingHost(true);
+                  }}
+                  className="text-emerald-400 hover:text-emerald-300 text-[11px] font-semibold underline ml-2"
+                >
+                  Изменить
+                </button>
+              </div>
+            )}
           </div>
 
         </div>

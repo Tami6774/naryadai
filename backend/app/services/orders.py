@@ -6,6 +6,7 @@ from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -92,15 +93,27 @@ def create_order(db: Session, master: Employee, data) -> WorkOrder:
     assignee = db.get(Employee, data.assignee_id) if data.assignee_id else None
     if data.assignee_id and (not assignee or assignee.role != Role.worker):
         raise HTTPException(400, "Исполнитель не найден")
-    o = WorkOrder(
-        number=next_number(db), work_type=data.work_type, description=data.description,
-        section_id=equipment.section_id, equipment_id=equipment.id,
-        assignee_id=assignee.id if assignee else None, brigade_id=data.brigade_id,
-        master_id=master.id, priority=data.priority, deadline=data.deadline,
-        comment=data.comment, status=S.issued,
-    )
-    db.add(o)
-    db.flush()
+
+    o = None
+    for attempt in range(5):
+        sp = db.begin_nested()
+        try:
+            o = WorkOrder(
+                number=next_number(db), work_type=data.work_type, description=data.description,
+                section_id=equipment.section_id, equipment_id=equipment.id,
+                assignee_id=assignee.id if assignee else None, brigade_id=data.brigade_id,
+                master_id=master.id, priority=data.priority, deadline=data.deadline,
+                comment=data.comment, status=S.issued,
+            )
+            db.add(o)
+            db.flush()
+            sp.commit()
+            break
+        except IntegrityError:
+            sp.rollback()
+            if attempt == 4:
+                raise HTTPException(500, "Не удалось сформировать уникальный номер наряда. Повторите попытку.")
+
     log_event(db, o, master, "issued", None, S.issued, comment=data.comment)
     db.refresh(o)
     if assignee:
