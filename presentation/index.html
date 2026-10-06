@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Презентация «НарядAI» — АО «Костанайские Минералы»</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .slide { display: none; min-height: 100vh; }
+    .slide.active { display: flex; }
+    @media print {
+      body { background: #0f172a !important; color: white !important; }
+      .slide { display: flex !important; page-break-after: always; min-height: 100vh; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white overflow-hidden">
+
+  <!-- СЛАЙД 1: Титульный -->
+  <section class="slide active flex-col justify-center items-center p-8 sm:p-16 relative" id="slide-1">
+    <div class="max-w-5xl w-full text-center space-y-6">
+      <div class="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-400 text-xs font-bold tracking-wider uppercase">
+        <span>АО «Костанайские Минералы» • Qostanai Industry Hackathon 2026</span>
+      </div>
+      <h1 class="text-6xl sm:text-7xl font-black text-white tracking-tight">
+        «Наряд<span class="text-emerald-400">AI</span>»
+      </h1>
+      <p class="text-2xl sm:text-3xl font-bold text-slate-200">
+        Наряд выдан — ИИ на контроле
+      </p>
+      <p class="text-base sm:text-lg text-slate-400 max-w-3xl mx-auto leading-relaxed">
+        Сквозная автономная система выдачи, сопровождения и аналитики нарядов на ТОиР с контролем фотоотчётов, норм ТМЦ и детекцией аномалий
+      </p>
+      <div class="pt-8 flex flex-wrap justify-center gap-4 text-xs font-semibold text-slate-300">
+        <span class="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl">📱 Android APK & Web PWA</span>
+        <span class="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl">🔒 100% On-Premise ($0 Cloud API)</span>
+        <span class="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl">⚡ FSM 10 статусов & Офлайн-очередь</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- СЛАЙД 2: Проблема -->
+  <section class="slide flex-col justify-center p-8 sm:p-16 max-w-6xl mx-auto" id="slide-2">
+    <div class="space-y-6">
+      <div class="text-xs font-bold uppercase tracking-wider text-emerald-400">Слайд 2/10 • Проблематика ТОиР</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Почему текущий процесс теряет время и деньги?</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+          <div class="text-red-400 font-bold text-xl">⏱ 40+ минут потерь</div>
+          <p class="text-sm text-slate-300 leading-relaxed">
+            Наряды выдаются устно, по рации или на бумаге. Мастер не видит загрузку в реальном времени, а слесари тратят до 40 минут смены на согласования и поиск деталей.
+          </p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+          <div class="text-amber-400 font-bold text-xl">📸 Недостоверность и брак</div>
+          <p class="text-sm text-slate-300 leading-relaxed">
+            Фото шлют в WhatsApp или не делают вовсе. Риск сдачи чужих/архивных фото. Повторные поломки узлов сразу после ремонта (до 70% у отдельных исполнителей).
+          </p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+          <div class="text-blue-400 font-bold text-xl">📊 Слепая зона ТМЦ</div>
+          <p class="text-sm text-slate-300 leading-relaxed">
+            Списание деталей не сверяется с технологическими нормами. Перерасход запчастей на 30–50% остается незамеченным. Сменный рапорт собирается вручную по 1–2 часа.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- СЛАЙД 3: Решение -->
+  <section class="slide flex-col justify-center p-8 sm:p-16 max-w-6xl mx-auto" id="slide-3">
+    <div class="space-y-6">
+      <div class="text-xs font-bold uppercase tracking-wider text-emerald-400">Слайд 3/10 • Концепция решения</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Единая цифровая экосистема «НарядAI»</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+        <div class="bg-slate-900 border border-emerald-500/40 p-6 rounded-2xl space-y-3 shadow-lg">
+          <div class="text-emerald-400 font-bold text-lg">📱 Слесарь в цеху (APK)</div>
+          <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+            <li>Крупные кнопки (≥48px) под перчатки</li>
+            <li>Полный Offline-First: очередь мутаций</li>
+            <li>Фотофиксация «до/после» с проверкой</li>
+            <li>Авто-экран ошибки связи с сервером</li>
+          </ul>
+        </div>
+        <div class="bg-slate-900 border border-emerald-500/40 p-6 rounded-2xl space-y-3 shadow-lg">
+          <div class="text-emerald-400 font-bold text-lg">💻 Мастер смены (Канбан)</div>
+          <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+            <li>Живая доска статусов и дедлайнов</li>
+            <li>Голосовой ввод и подсказка шифров дефектов</li>
+            <li>Звуковые алерты и автоэскалация</li>
+            <li>Пресет «⚡ Демо 1 минута» для защиты</li>
+          </ul>
+        </div>
+        <div class="bg-slate-900 border border-emerald-500/40 p-6 rounded-2xl space-y-3 shadow-lg">
+          <div class="text-emerald-400 font-bold text-lg">📊 Главный механик (Аналитика)</div>
+          <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+            <li>Детекция аномалий за 3 месяца истории</li>
+            <li>Сверка ТМЦ с нормами (перерасход >40%)</li>
+            <li>Сменный рапорт, расчет MTTR и First-Time-Fix</li>
+            <li>Лидерборд слесарей и рейтинг бригад</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- СЛАЙД 4: Архитектура On-Premise -->
+  <section class="slide flex-col justify-center p-8 sm:p-16 max-w-6xl mx-auto" id="slide-4">
+    <div class="space-y-6">
+      <div class="text-xs font-bold uppercase tracking-wider text-emerald-400">Слайд 4/10 • Архитектура и безопасность</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">100% On-Premise и 0$ затрат на облачные API</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+          <div class="text-emerald-400 font-bold text-base">🔒 Технологический стек</div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            FastAPI + SQLAlchemy + SQLite/PostgreSQL. Единый контейнер Docker Compose. Клиент React 18 PWA и Capacitor 7 Android APK. Встроенный rate-limiting ПИН-кодов и потоковая проверка Magic Bytes загружаемых фото (защита от OOM и инъекций).
+          </p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+          <div class="text-emerald-400 font-bold text-base">💡 Автономный Zero-Cost AI</div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Полный отказ от платных внешних нейросетей: локальный TF-IDF NLP-подсказчик, перцептивный dHash для детекции дубликатов фото, статистические алгоритмы аномалий. Работает полностью автономно даже при обрыве внешнего интернета ГОКа!
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- СЛАЙД 5: FSM и Офлайн -->
+  <section class="slide flex-col justify-center p-8 sm:p-16 max-w-6xl mx-auto" id="slide-5">
+    <div class="space-y-6">
+      <div class="text-xs font-bold uppercase tracking-wider text-emerald-400">Слайд 5/10 • FSM & Офлайн-режим</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Конечный автомат (FSM) 10 статусов</h2>
+      <div class="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-4">
+        <div class="flex flex-wrap gap-2 text-xs font-bold">
+          <span class="px-2.5 py-1 bg-slate-800 rounded-lg text-slate-300">1. Создан</span> →
+          <span class="px-2.5 py-1 bg-blue-950 text-blue-300 rounded-lg">2. Выдан</span> →
+          <span class="px-2.5 py-1 bg-cyan-950 text-cyan-300 rounded-lg">3. Принят</span> →
+          <span class="px-2.5 py-1 bg-amber-950 text-amber-300 rounded-lg">4. В работе</span> →
+          <span class="px-2.5 py-1 bg-purple-950 text-purple-300 rounded-lg">5. Пауза</span> →
+          <span class="px-2.5 py-1 bg-indigo-950 text-indigo-300 rounded-lg">6. На проверке ИИ</span> →
+          <span class="px-2.5 py-1 bg-emerald-950 text-emerald-300 rounded-lg">7. Принят</span>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Ветки исключений: <span class="text-red-400 font-bold">needs_rework</span> (доработка дефекта) и <span class="text-red-400 font-bold">rejected</span> (отклонение слесарем с переназначением мастером в 1 клик). Очередь нарядов (Queue) не перегружает рабочего concurrent-задачами. Очередь офлайн-мутаций гарантирует сохранность данных в экранированных цехах.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- СЛАЙД 6: Автономные ИИ-модули -->
+  <section class="slide flex-col justify-center p-8 sm:p-16 max-w-6xl mx-auto" id="slide-6">
+    <div class="space-y-6">
+      <div class="text-xs font-bold uppercase tracking-wider text-emerald-400">Слайд 6/10 • ИИ-контроль качества</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Локальный ИИ: Сроки, дефекты и фото</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-2">
+          <div class="text-amber-400 font-bold text-sm">⏱ Мониторинг дедлайнов</div>
+          <p class="text-xs text-slate-300">Проверка каждые 15 сек. Алерт за 15 минут до дедлайна, звуковое оповещение и автоэскалация мастеру при срыве.</p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-2">
+          <div class="text-blue-400 font-bold text-sm">🧠 NLP-подсказка дефектов</div>
+          <p class="text-xs text-slate-300">Анализ текста описания на RU/KZ: подсказка шифров (КИ-1..КИ-4, МХ-1..МХ-6) и нормативной трудоёмкости ремонта.</p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-2">
+          <div class="text-emerald-400 font-bold text-sm">📷 5-балльная оценка фото</div>
+          <p class="text-xs text-slate-300">Хэширование dHash. Выявление дубликатов (1 балл), идентичных фото «до/после» (3 балла) и образцовых отчётов (5 баллов).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- СЛАЙД 7: Аномалии и ТМЦ -->
+  <section class="slide flex-col justify-center p-8 sm:p-16 max-w-6xl mx-auto" id="slide-7">
+    <div class="space-y-6">
+      <div class="text-xs font-bold uppercase tracking-wider text-emerald-400">Слайд 7/10 • Аналитика аномалий и ТМЦ</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Поиск скрытых сбоев после ППР и перерасхода ТМЦ</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+          <div class="text-red-400 font-bold text-base">⚙️ Паттерны сбоев оборудования</div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Аудит 600+ нарядов за 92 дня выявил: дробилка КМД-1750 и дымосос ВДН-12 систематически выходят из строя через 3-5 дней после планового ППР (брак смазки/центровки). Конвейер К-3 имеет превышение аварийности в 3.2 раза.
+          </p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+          <div class="text-emerald-400 font-bold text-base">📦 Контроль списания материалов (ТМЦ)</div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Сверка с технологическими нормами выявляет перерасход >40% по роликоопорам и подшипникам. Предотвращает нецелевое списание и формирует прозрачные акты с выгрузкой в Excel.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- СЛАЙД 8: Сменный рапорт и Рейтинг -->
+  <section class="slide flex-col justify-center p-8 sm:p-16 max-w-6xl mx-auto" id="slide-8">
+    <div class="space-y-6">
+      <div class="text-xs font-bold uppercase tracking-wider text-emerald-400">Слайд 8/10 • Сменный рапорт и KPI</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Объективный рейтинг и сменная сводка</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+          <div class="text-emerald-400 font-bold text-base">📋 Сменный рапорт за 3 секунды</div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Метрики MTTR, времени реакции слесаря и First-Time-Fix rate (% сдачи без доработок). Автоматическое текстовое ИИ-резюме смены и учёт почасовой загрузки каждого сотрудника.
+          </p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+          <div class="text-amber-400 font-bold text-base">🏆 Рейтинг по формуле 6.6 ТЗ</div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Балл = 0.35·Качество + 0.25·Сроки + 0.20·(100 - Повторы) + 0.15·Объём + 0.05·(100 - Отказы). Лидер Ахметов (94 балла, 0 повторов) vs вскрыт систематический брак Серикова (70.6% повторных отказов). Рейтинг бригад (Бригада №1, №2, №3).
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- СЛАЙД 9: Экономический эффект -->
+  <section class="slide flex-col justify-center p-8 sm:p-16 max-w-6xl mx-auto" id="slide-9">
+    <div class="space-y-6">
+      <div class="text-xs font-bold uppercase tracking-wider text-emerald-400">Слайд 9/10 • Экономический эффект</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Экономия ~45 млн ₸ в год для предприятия</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+        <div class="bg-slate-900 border border-emerald-500/40 p-6 rounded-2xl text-center space-y-2">
+          <div class="text-3xl font-black text-emerald-400">-18%</div>
+          <div class="text-xs font-bold text-white uppercase">Простоев оборудования</div>
+          <p class="text-[11px] text-slate-400">Сокращение времени на согласования и быстрый ремонт дают +4.2% КТГ (~28 млн ₸/год).</p>
+        </div>
+        <div class="bg-slate-900 border border-emerald-500/40 p-6 rounded-2xl text-center space-y-2">
+          <div class="text-3xl font-black text-emerald-400">-35%</div>
+          <div class="text-xs font-bold text-white uppercase">Повторных поломок</div>
+          <p class="text-[11px] text-slate-400">Устранение брака после ППР и некачественных ремонтов экономит ~17 млн ₸/год.</p>
+        </div>
+        <div class="bg-slate-900 border border-emerald-500/40 p-6 rounded-2xl text-center space-y-2">
+          <div class="text-3xl font-black text-emerald-400">0 ₸</div>
+          <div class="text-xs font-bold text-white uppercase">Затрат на API</div>
+          <p class="text-[11px] text-slate-400">Автономные алгоритмы окупают проект за первые 2 месяца эксплуатации.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- СЛАЙД 10: План внедрения -->
+  <section class="slide flex-col justify-center p-8 sm:p-16 max-w-6xl mx-auto" id="slide-10">
+    <div class="space-y-6">
+      <div class="text-xs font-bold uppercase tracking-wider text-emerald-400">Слайд 10/10 • План внедрения и готовность</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Готовность к запуску и дорожная карта</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-2">
+          <div class="text-emerald-400 font-bold text-sm">📅 Дорожная карта</div>
+          <p class="text-xs text-slate-300">
+            • Недели 1–2: Пилот на Дробильно-сортировочном комплексе (ДСК).<br>
+            • Недели 3–4: Интеграция с 1С:ТОИР и АСУ ГОП.<br>
+            • Месяц 2: Тираж на Обогатительную фабрику и карьер.<br>
+            • Месяц 3: ML-прогнозирование остаточного ресурса подшипников.
+          </p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-2">
+          <div class="text-emerald-400 font-bold text-sm">🚀 Готовность к демонстрации</div>
+          <p class="text-xs text-slate-300">
+            • Рабочий сервер: http://localhost:8000<br>
+            • Готовый APK (4.0 МБ): naryad-ai.apk с авто-экраном связи<br>
+            • База данных: 600+ нарядов за 92 дня<br>
+            • Репозиторий: github.com/Tami6774/naryadai
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Нижняя панель навигации -->
+  <nav class="fixed bottom-0 left-0 right-0 p-4 bg-slate-900/90 backdrop-blur border-t border-slate-800 flex justify-between items-center z-50 no-print">
+    <div class="flex items-center space-x-3">
+      <button onclick="prevSlide()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition">← Назад</button>
+      <button onclick="nextSlide()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition">Далее →</button>
+      <span class="text-xs text-slate-400 font-mono" id="slide-indicator">Слайд 1 из 10</span>
+    </div>
+    <div class="flex items-center space-x-3">
+      <span class="text-xs text-slate-400 hidden sm:inline">Переключение: Стрелки / Пробел • F11: Полный экран</span>
+      <button onclick="window.print()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition">Печать в PDF</button>
+    </div>
+  </nav>
+
+  <script>
+    let currentSlide = 1;
+    const totalSlides = 10;
+
+    function showSlide(n) {
+      document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+      const active = document.getElementById(`slide-${n}`);
+      if (active) active.classList.add('active');
+      document.getElementById('slide-indicator').textContent = `Слайд ${n} из ${totalSlides}`;
+      currentSlide = n;
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) showSlide(currentSlide + 1);
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) showSlide(currentSlide - 1);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') nextSlide();
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') prevSlide();
+    });
+  </script>
+</body>
+</html>

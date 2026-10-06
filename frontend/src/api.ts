@@ -6,10 +6,10 @@ export function getApiBaseUrl(): string {
   if (host && host.trim()) {
     return host.trim().replace(/\/+$/, '');
   }
-  // В мобильном окружении Capacitor по умолчанию обращаемся к локальному шлюзу
+  // В мобильном окружении Capacitor по умолчанию обращаемся к локальному IP ПК
   if (typeof window !== 'undefined') {
     if (window.location.protocol === 'capacitor:' || (window.location.hostname === 'localhost' && !['5173', '8000'].includes(window.location.port))) {
-      return 'http://10.42.0.1:8000';
+      return 'http://192.168.3.81:8000';
     }
   }
   return '';
@@ -20,6 +20,32 @@ export function setApiHost(host: string | null): void {
     localStorage.setItem('naryad_api_host', host.trim().replace(/\/+$/, ''));
   } else {
     localStorage.removeItem('naryad_api_host');
+  }
+}
+
+export async function checkServerHealth(timeoutMs: number = 3500): Promise<{ ok: boolean; pingMs?: number; error?: string }> {
+  const base = getApiBaseUrl();
+  const url = `${base}/api/health`;
+  const start = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      return { ok: true, pingMs: Date.now() - start };
+    }
+    return { ok: false, error: `Сервер вернул статус ${res.status}` };
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      return { ok: false, error: `Таймаут подключения к серверу (${timeoutMs} мс)` };
+    }
+    return { ok: false, error: 'Сетевая ошибка: хост недоступен или сервер выключен' };
   }
 }
 

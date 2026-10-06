@@ -7,8 +7,10 @@ import { WorkerView } from './pages/WorkerView';
 import { AnalyticsView } from './pages/AnalyticsView';
 import { RatingShiftView } from './pages/RatingShiftView';
 
+import { ServerOfflineScreen } from './components/ServerOfflineScreen';
+
 export const AppContent: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, serverConnected, recheckServer, forceOffline, setForceOffline } = useAuth();
   const [currentTab, setCurrentTab] = useState<'master' | 'analytics' | 'rating'>('master');
 
   if (loading) {
@@ -18,6 +20,16 @@ export const AppContent: React.FC = () => {
           Загрузка «НарядAI»...
         </div>
       </div>
+    );
+  }
+
+  // Если сервер недоступен — выводим полноценный экран ошибки подключения
+  if (!serverConnected && !forceOffline && !user) {
+    return (
+      <ServerOfflineScreen
+        onConnected={recheckServer}
+        onContinueOffline={() => setForceOffline(true)}
+      />
     );
   }
 

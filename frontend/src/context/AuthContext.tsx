@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { User, NotificationItem } from '../types';
-import { api, getToken, setToken, getWsBaseUrl } from '../api';
+import { api, getToken, setToken, getWsBaseUrl, checkServerHealth } from '../api';
 import { Lang, translations } from '../utils/i18n';
 import { getOfflineQueue, subscribeOfflineQueue, syncOfflineQueue, OfflineAction } from '../utils/offlineQueue';
 
@@ -24,6 +24,10 @@ interface AuthContextType {
   offlineCount: number;
   offlineQueue: OfflineAction[];
   syncOfflineNow: () => Promise<{ synced: number; failed: number }>;
+  serverConnected: boolean;
+  recheckServer: () => Promise<boolean>;
+  forceOffline: boolean;
+  setForceOffline: (val: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,6 +45,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lang, setLangState] = useState<Lang>(() => {
     return (localStorage.getItem('naryad_lang') as Lang) || 'ru';
   });
+  const [serverConnected, setServerConnected] = useState<boolean>(true);
+  const [forceOffline, setForceOffline] = useState<boolean>(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   const setLang = useCallback((newLang: Lang) => {
@@ -163,6 +169,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser();
   }, [refreshUser]);
 
+  const recheckServer = useCallback(async (): Promise<boolean> => {
+    const res = await checkServerHealth(3500);
+    setServerConnected(res.ok);
+    if (res.ok) {
+      setForceOffline(false);
+      await refreshUser();
+    }
+    return res.ok;
+  }, [refreshUser]);
+
+  useEffect(() => {
+    checkServerHealth(3500).then((res) => {
+      setServerConnected(res.ok);
+    });
+  }, []);
+
   const syncOfflineNow = useCallback(async () => {
     const res = await syncOfflineQueue(api.applyActionDirect);
     if (res.synced > 0) {
@@ -220,10 +242,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, playAlertSound]);
 
   const login = async (loginName: string, pin: string) => {
-    const res = await api.login(loginName, pin);
-    setToken(res.token);
-    setUser(res.user);
-    await loadNotifications();
+    try {
+      const res = await api.login(loginName, pin);
+      setToken(res.token);
+      setUser(res.user);
+      setServerConnected(true);
+      await loadNotifications();
+    } catch (err: any) {
+      if (err.message && (err.message.includes('Сетевая ошибка') || err.message.includes('Failed to fetch') || err.message.includes('Таймаут'))) {
+        setServerConnected(false);
+      }
+      throw err;
+    }
   };
 
   const quickSwitch = async (loginName: string) => {
@@ -258,6 +288,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       offlineCount: offlineQueue.length,
       offlineQueue,
       syncOfflineNow,
+      serverConnected,
+      recheckServer,
+      forceOffline,
+      setForceOffline,
     }}>
       {children}
     </AuthContext.Provider>
