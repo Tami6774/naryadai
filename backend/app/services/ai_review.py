@@ -135,25 +135,41 @@ def check_photos(db: Session, o: WorkOrder, r: ReviewResult) -> None:
     other_hashes = db.execute(
         select(Photo.phash, Photo.order_id).where(Photo.order_id != o.id, Photo.phash.is_not(None))
     ).all()
+    has_dup = False
+    has_early = False
+    has_identical = False
+
     for p in after:
         if not p.phash:
             continue
         dup = next((oid for h, oid in other_hashes if hamming(h, p.phash) <= 4), None)
         if dup:
             issues = True
+            has_dup = True
             r.add("photo", CRITICAL, "Фото «после» повторяет ранее загруженное фото другого наряда", 35)
         if p.taken_at and o.started_at and p.taken_at < o.started_at.replace(microsecond=0) and \
                 (o.started_at - p.taken_at).total_seconds() > 3600:
             issues = True
+            has_early = True
             r.add("photo", REMARK, "Фото «после» сделано до начала работ (по метаданным)", 15)
         for b in before:
             if b.phash and hamming(b.phash, p.phash) <= 3:
                 issues = True
+                has_identical = True
                 r.add("photo", REMARK, "Фото «после» практически совпадает с фото «до» — устранение не видно", 15)
                 r.needs_master_check = True
-    if not issues:
+
+    if has_dup:
+        r.photo_score = 1
+    elif has_early:
+        r.photo_score = 2
+    elif has_identical:
+        r.photo_score = 3
+    elif not issues:
         r.add("photo", OK, "Фото «после» свежее и не повторяет старые снимки")
-        r.photo_score = 4 if before else None
+        r.photo_score = 5 if before else 4
+    else:
+        r.photo_score = 3
 
 
 def build_reports(o: WorkOrder, r: ReviewResult) -> tuple[Verdict, int, str, str]:

@@ -80,6 +80,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Разблокировка Web Audio по первому клику/тачу пользователя (Autoplay Policy)
+  useEffect(() => {
+    const unlockAudio = () => {
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          if (ctx.state === 'suspended') {
+            ctx.resume();
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('pointerdown', unlockAudio, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+    };
+  }, []);
+
   const playAlertSound = useCallback((urgent = false, force = false) => {
     if (!soundEnabled && !force) return;
     try {

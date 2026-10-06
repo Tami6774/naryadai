@@ -87,10 +87,11 @@ export const MasterView: React.FC = () => {
     return true;
   });
 
-  const colNew = filteredOrders.filter(o => o.status === 'issued' || o.status === 'queued' || o.status === 'accepted');
+  const colNew = filteredOrders.filter(o => o.status === 'issued' || o.status === 'queued' || o.status === 'accepted' || o.status === 'rejected');
   const colProgress = filteredOrders.filter(o => o.status === 'in_progress' || o.status === 'paused');
   const colReview = filteredOrders.filter(o => o.status === 'ai_review' || o.status === 'rework');
   const colDone = filteredOrders.filter(o => o.status === 'closed' || o.status === 'done');
+  const rejectedOrders = filteredOrders.filter(o => o.status === 'rejected');
 
   return (
     <div className="space-y-6">
@@ -307,6 +308,29 @@ export const MasterView: React.FC = () => {
           </div>
         </div>
 
+        {rejectedOrders.length > 0 && (
+          <div className="bg-red-950/80 border border-red-600 p-4 rounded-2xl flex items-center justify-between text-xs shadow-lg animate-pulse">
+            <div className="flex items-center space-x-3 text-red-200">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <div className="font-bold text-sm text-red-100">
+                  Внимание! {rejectedOrders.length} наряд(ов) отклонено исполнителями:
+                </div>
+                <div className="text-red-300">
+                  {rejectedOrders.map(o => `№${o.number} (${o.equipment?.name})`).join(', ')}. Нажмите для переназначения на другого слесаря.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedOrderId(rejectedOrders[0].id)}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition shadow text-xs whitespace-nowrap"
+            >
+              Переназначить
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           
           {/* Колонка 1: Выданы / В очереди */}
@@ -418,6 +442,13 @@ const OrderCard: React.FC<{ order: WorkOrder; onClick: () => void }> = ({ order,
           {order.priority_label}
         </span>
       </div>
+
+      {order.status === 'rejected' && (
+        <div className="mb-2 p-1.5 bg-red-950/90 border border-red-500 rounded-lg text-[10px] font-bold text-red-200 flex items-center justify-between shadow">
+          <span>❌ Отклонён слесарем</span>
+          <span className="text-[9px] text-red-300 underline">Переназначить →</span>
+        </div>
+      )}
 
       <div className="font-bold text-xs text-white leading-snug line-clamp-1">{order.equipment.name}</div>
       <div className="text-[11px] text-slate-300 mt-1 line-clamp-2">{order.description}</div>

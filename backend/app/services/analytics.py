@@ -107,16 +107,26 @@ def detect_anomalies(db: Session, days: int = 90) -> dict:
 
     # ------------------------------------------------ 2. Поломки вскоре после ППР (качество ТО)
     planned_orders = [o for o in orders if o.work_type == "planned" and o.done_at]
-    post_ppr_failures = defaultdict(list)
+    critical_eq_ids = {p["equipment_id"] for p in top_problematic if p["unplanned_count"] >= avg_unplanned * 2.5 and p["unplanned_count"] >= 5}
+    post_ppr_by_eq = defaultdict(list)
     for p in planned_orders:
+        if p.equipment_id in critical_eq_ids:
+            continue
+        # Ищем первый внеплановый отказ на том же агрегате в течение 1.5–5 дней после ППР
+        earliest = None
         for u in unplanned_by_eq.get(p.equipment_id, []):
-            if p.done_at and u.created_at:
+            if p.done_at and u.created_at and u.created_at > p.done_at:
                 delta_days = (u.created_at - p.done_at).total_seconds() / 86400
-                if 0.5 <= delta_days <= 5.0:
-                    post_ppr_failures[p.equipment_id].append((p, u, delta_days))
+                if 1.5 <= delta_days <= 5.0:
+                    if earliest is None or u.created_at < earliest[1].created_at:
+                        earliest = (p, u, delta_days)
+        if earliest:
+            post_ppr_by_eq[p.equipment_id].append(earliest)
 
-    for eq_id, fails in post_ppr_failures.items():
-        if len(fails) >= 3:
+    sorted_ppr = sorted(post_ppr_by_eq.items(), key=lambda x: len(x[1]), reverse=True)
+    # Выделяем агрегаты с систематическим браком после ТО (не более топ-2)
+    for eq_id, fails in sorted_ppr[:2]:
+        if len(fails) >= 4:
             eq = fails[0][0].equipment
             insights.append({
                 "type": "post_ppr_quality",
@@ -138,7 +148,8 @@ def detect_anomalies(db: Session, days: int = 90) -> dict:
     worker_orders = defaultdict(list)
     for o in orders:
         if o.assignee_id and o.work_type == "unplanned" and o.done_at and o.fault_code_id:
-            worker_orders[o.assignee_id].append(o)
+            if o.equipment_id not in critical_eq_ids:
+                worker_orders[o.assignee_id].append(o)
 
     for wid, w_orders in worker_orders.items():
         for i, o1 in enumerate(w_orders):
@@ -151,7 +162,7 @@ def detect_anomalies(db: Session, days: int = 90) -> dict:
 
     for wid, reps in repeat_by_worker.items():
         total_w = len(worker_orders[wid])
-        if len(reps) >= 4 and (len(reps) / total_w) > 0.2:
+        if total_w >= 10 and (len(reps) / total_w) > 0.50:
             worker = db.get(Employee, wid)
             if worker:
                 insights.append({

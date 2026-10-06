@@ -29,6 +29,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
   const [error, setError] = useState<string | null>(null);
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrInput, setQrInput] = useState('');
+  const [deadlineMinutes, setDeadlineMinutes] = useState<number>(priority === 'emergency' ? 120 : 480);
+  const [masterComment, setMasterComment] = useState('');
 
   const handleSelectByQr = (rawCode: string) => {
     const code = rawCode.trim().toUpperCase();
@@ -139,12 +141,15 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
     setError(null);
 
     try {
+      const deadlineDate = new Date(Date.now() + Number(deadlineMinutes) * 60000).toISOString();
       const order = await api.createOrder({
         work_type: workType,
         description,
         equipment_id: Number(equipmentId),
         assignee_id: assigneeId ? Number(assigneeId) : null,
         priority,
+        deadline: deadlineDate,
+        comment: masterComment.trim() || undefined,
       });
 
       if (photoFile && order.id) {
@@ -387,6 +392,54 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Нормативный срок / Дедлайн (с пресетом Демо: 1 мин для Шага 4) */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-slate-300 font-semibold text-xs flex items-center space-x-1.5">
+                <span>Срок выполнения наряда (дедлайн)</span>
+              </label>
+              <span className={`text-[11px] font-bold ${deadlineMinutes === 1 ? 'text-red-400 animate-pulse' : 'text-emerald-400'}`}>
+                {deadlineMinutes === 1 ? '⚡ ДЕМО: 1 минута (просрочка вживую)' : `+${deadlineMinutes >= 60 ? (deadlineMinutes/60) + ' ч' : deadlineMinutes + ' мин'}`}
+              </span>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {[
+                { label: '⚡ Демо 1м', val: 1 },
+                { label: '30 мин', val: 30 },
+                { label: '2 часа', val: 120 },
+                { label: '4 часа', val: 240 },
+                { label: '8 часов', val: 480 },
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setDeadlineMinutes(opt.val)}
+                  className={`py-2 px-1 text-xs font-bold rounded-xl border transition text-center ${
+                    deadlineMinutes === opt.val
+                      ? opt.val === 1 
+                        ? 'bg-red-950 border-red-500 text-red-200 shadow-md shadow-red-950' 
+                        : 'bg-emerald-950 border-emerald-500 text-emerald-200 shadow-md shadow-emerald-950'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Комментарий мастера */}
+          <div>
+            <label className="block text-slate-300 font-semibold mb-1 text-xs">Указания мастера смены (опционально)</label>
+            <input
+              type="text"
+              value={masterComment}
+              onChange={(e) => setMasterComment(e.target.value)}
+              placeholder="Особые условия: выставить ограждение, проверить давление..."
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:border-emerald-500"
+            />
           </div>
 
           {/* Фото дефекта (Камера/галерея) */}

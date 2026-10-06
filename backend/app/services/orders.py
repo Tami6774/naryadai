@@ -203,6 +203,8 @@ def apply_action(db: Session, o: WorkOrder, actor: Employee, action: str,
 
     if action == "complete":
         _run_ai_review(db, o, actor)
+    elif action == "cancel" and o.assignee:
+        _promote_next_queued(db, o.assignee)
     return o
 
 
@@ -249,7 +251,8 @@ def _run_ai_review(db: Session, o: WorkOrder, worker: Employee) -> None:
                f"Наряд №{o.number} ждёт подтверждения ({a.score}/100)",
                f"{short_name(worker.full_name)}, {_order_line(o)}. {a.explanation}", order_id=o.id)
     _emit_update(db, o)
-    _promote_next_queued(db, worker)
+    if a.verdict != Verdict.needs_rework:
+        _promote_next_queued(db, worker)
 
 
 def reassign(db: Session, o: WorkOrder, master: Employee, assignee_id: int,
@@ -277,6 +280,7 @@ def reassign(db: Session, o: WorkOrder, master: Employee, assignee_id: int,
     if old and old.id != new.id:
         notify(db, old, "reassigned", f"Наряд №{o.number} передан другому исполнителю",
                _order_line(o), order_id=o.id)
+        _promote_next_queued(db, old)
     _emit_update(db, o)
     return o
 

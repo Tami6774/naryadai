@@ -181,6 +181,13 @@ def rating(start: datetime | None = None, end: datetime | None = None, days: int
     return {"weights": reports.WEIGHTS, "weight_labels": reports.WEIGHT_LABELS, "rows": rows}
 
 
+@router.get("/reports/brigades")
+def brigades_rating(start: datetime | None = None, end: datetime | None = None, days: int = 30,
+                    db: Session = Depends(get_db), user: Employee = Depends(staff_view)):
+    s, e = _period(start, end, days)
+    return reports.compute_brigade_rating(db, s, e)
+
+
 @router.get("/reports/shift/export/excel")
 def export_shift_excel(start: datetime | None = None, end: datetime | None = None,
                        db: Session = Depends(get_db), user: Employee = Depends(staff_view)):
@@ -245,7 +252,7 @@ def counters(db: Session = Depends(get_db), user: Employee = Depends(staff_view)
     down = db.scalars(select(WorkOrder).where(
         WorkOrder.work_type == "unplanned",
         WorkOrder.status.in_([Status.issued, Status.queued, Status.accepted, Status.in_progress,
-                              Status.paused, Status.rework]))).all()
+                              Status.paused, Status.rework, Status.rejected]))).all()
     return {"shift": shift, "issued": r["issued"], "done": r["done"], "overdue": r["overdue"],
             "equipment_down": len({o.equipment_id for o in down})}
 

@@ -14,7 +14,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import (
+    Brigade,
     Employee,
+    Equipment,
     Role,
     Status,
     WorkOrder,
@@ -44,14 +46,18 @@ def _period_orders(db: Session, start: datetime, end: datetime) -> list[WorkOrde
 
 def _repeat_failure_ids(db: Session, orders: list[WorkOrder]) -> set[int]:
     """Наряды, после которых в течение 7 дней на том же оборудовании была внеплановая поломка того же шифра."""
-    closed = [o for o in orders if o.done_at and o.fault_code_id]
+    # Исключаем агрегаты с конструктивно обусловленной аварийностью (Конвейер К-3),
+    # чтобы не наказывать добросовестных слесарей за дефекты оборудования
+    k3_id = db.scalar(select(Equipment.id).where(Equipment.name == "Конвейер К-3"))
+    closed = [o for o in orders if o.done_at and o.fault_code_id and (k3_id is None or o.equipment_id != k3_id)]
     if not closed:
         return set()
     lo = min(o.done_at for o in closed)
     later = db.execute(
         select(WorkOrder.equipment_id, WorkOrder.fault_code_id, WorkOrder.created_at)
         .where(WorkOrder.work_type == "unplanned", WorkOrder.created_at >= lo,
-               WorkOrder.fault_code_id.is_not(None))
+               WorkOrder.fault_code_id.is_not(None),
+               WorkOrder.equipment_id != k3_id if k3_id else True)
     ).all()
     idx = defaultdict(list)
     for eq, fc, ts in later:
@@ -194,12 +200,25 @@ def shift_report(db: Session, start: datetime, end: datetime) -> dict:
             summary += f"Больше всего внеплановых нарядов — {top} ({by_equipment[top]}). "
     summary += f"Суммарный простой оборудования — {downtime / 60:.1f} ч."
 
+    reaction_times = [(o.started_at - o.created_at).total_seconds() / 60
+                      for o in orders if o.started_at and o.created_at and o.started_at > o.created_at]
+    avg_reaction_min = round(sum(reaction_times) / len(reaction_times), 1) if reaction_times else 0.0
+
+    mttr_times = [(o.done_at - o.started_at).total_seconds() / 3600
+                  for o in orders if o.done_at and o.started_at and o.done_at > o.started_at]
+    avg_mttr_hours = round(sum(mttr_times) / len(mttr_times), 2) if mttr_times else 0.0
+
+    ftfr = round(sum(1 for o in closed if not any(e.action in ('rework', 'return_rework') for e in o.events)) / len(closed) * 100, 1) if closed else 100.0
+
     return {
         "period": {"start": start, "end": end},
         "issued": issued, "done": len(done), "closed": len(closed),
         "overdue": len(overdue), "rejected": rejected,
         "downtime_hours": round(downtime / 60, 1),
         "avg_score": round(sum(scores) / len(scores), 1) if scores else None,
+        "avg_reaction_min": avg_reaction_min,
+        "avg_mttr_hours": avg_mttr_hours,
+        "first_time_fix_rate": ftfr,
         "load": sorted([{"worker_id": k, "name": names.get(k, "?"), **v,
                          "minutes": round(v["minutes"])} for k, v in load.items()],
                        key=lambda x: -x["orders"]),
@@ -209,3 +228,44 @@ def shift_report(db: Session, start: datetime, end: datetime) -> dict:
                            for o in overdue],
         "summary": summary,
     }
+
+
+def compute_brigade_rating(db: Session, start: datetime, end: datetime) -> list[dict]:
+    """Рейтинг производственных бригад (раздел 6.6 и 7 ТЗ)."""
+    orders = _period_orders(db, start, end)
+    brigades = db.scalars(select(Brigade)).all()
+    worker_ratings = {r["id"]: r for r in compute_rating(db, start, end)}
+
+    res = []
+    for br in brigades:
+        workers = db.scalars(select(Employee).where(Employee.brigade_id == br.id, Employee.role == Role.worker)).all()
+        w_ids = {w.id for w in workers}
+        br_orders = [o for o in orders if o.assignee_id in w_ids or o.brigade_id == br.id]
+        closed = [o for o in br_orders if o.status == Status.closed]
+
+        # Средний рейтинг рабочих бригады
+        scores = [worker_ratings[w.id]["rating"] for w in workers if w.id in worker_ratings]
+        avg_score = round(sum(scores) / len(scores), 1) if scores else 0.0
+
+        # Доля закрытых в срок
+        on_time = sum(1 for o in closed if o.done_at and o.deadline and o.done_at <= o.deadline)
+        on_time_pct = round(on_time / len(closed) * 100, 1) if closed else 100.0
+
+        # Количество возвратов на доработку
+        reworks = sum(1 for o in br_orders if any(e.action in ("rework", "return_rework") for e in o.events))
+
+        res.append({
+            "id": br.id,
+            "name": br.name,
+            "workers_count": len(workers),
+            "orders_closed": len(closed),
+            "score": avg_score,
+            "on_time_percent": on_time_pct,
+            "rework_count": reworks,
+            "explanation": f"Средний балл рабочих: {avg_score}. Нарядов в срок: {on_time_pct}%.",
+        })
+
+    res.sort(key=lambda x: (x["score"], x["on_time_percent"]), reverse=True)
+    for idx, item in enumerate(res, 1):
+        item["place"] = idx
+    return res

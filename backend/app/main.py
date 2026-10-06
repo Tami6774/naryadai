@@ -23,6 +23,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(engine)
+    try:
+        from sqlalchemy import func, select
+        from .db import SessionLocal
+        from .models import Employee
+        with SessionLocal() as db:
+            if db.scalar(select(func.count(Employee.id))) == 0:
+                logging.getLogger("uvicorn").info("База данных пуста. Запуск генерации демонстрационных данных (92 дня)...")
+                from ..seed.generate import generate
+                generate(days=92, seed=42)
+    except Exception as exc:
+        logging.getLogger("uvicorn").warning("Авто-посев данных пропущен: %s", exc)
+
     task = asyncio.create_task(deadline_loop())
     yield
     task.cancel()
