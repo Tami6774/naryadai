@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..models import (
     PRIORITY_ORDER,
+    Brigade,
     Employee,
     Equipment,
     FaultCode,
@@ -26,6 +27,7 @@ from ..models import (
 from ..serializers import PRIORITY_LABELS, STATUS_LABELS, order_brief, short_name
 from . import ai_review
 from .events import broadcast, notify
+from .workers import suggest_assignees
 
 S = Status
 
@@ -94,6 +96,21 @@ def create_order(db: Session, master: Employee, data) -> WorkOrder:
     if data.assignee_id and (not assignee or assignee.role != Role.worker):
         raise HTTPException(400, "Исполнитель не найден")
 
+    # Наряд на бригаду (раздел 5.1): ИИ выбирает лучшего свободного члена бригады
+    brigade_note = None
+    if data.brigade_id:
+        brigade = db.get(Brigade, data.brigade_id)
+        if not brigade:
+            raise HTTPException(400, "Бригада не найдена")
+        if not assignee:
+            candidates = [c for c in suggest_assignees(db, equipment.id, data.description, limit=100)
+                          if (c.get("brigade") or {}).get("id") == brigade.id]
+            if not candidates:
+                raise HTTPException(409, f"В бригаде «{brigade.name}» нет исполнителей на смене")
+            best = candidates[0]
+            assignee = db.get(Employee, best["id"])
+            brigade_note = f"Наряд на «{brigade.name}»: ИИ назначил {best['short_name']} ({best['reason']})"
+
     o = None
     for attempt in range(5):
         sp = db.begin_nested()
@@ -115,6 +132,8 @@ def create_order(db: Session, master: Employee, data) -> WorkOrder:
                 raise HTTPException(500, "Не удалось сформировать уникальный номер наряда. Повторите попытку.")
 
     log_event(db, o, master, "issued", None, S.issued, comment=data.comment)
+    if brigade_note:
+        log_event(db, o, None, "brigade_assign", comment=brigade_note)
     db.refresh(o)
     if assignee:
         urgent = o.priority == Priority.emergency

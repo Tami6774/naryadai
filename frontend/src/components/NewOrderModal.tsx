@@ -22,6 +22,10 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
   const [priority, setPriority] = useState<Priority>('emergency');
   const [workType, setWorkType] = useState<WorkType>('unplanned');
   const [assigneeId, setAssigneeId] = useState<number | ''>('');
+  // Кому выдаётся наряд: конкретному исполнителю или бригаде (раздел 5.1)
+  const [assignMode, setAssignMode] = useState<'worker' | 'brigade'>('worker');
+  const [brigades, setBrigades] = useState<Array<{ id: number; name: string }>>([]);
+  const [brigadeId, setBrigadeId] = useState<number | ''>('');
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);  // фото неисправности, до MAX_PHOTOS
 
   const [suggestedFault, setSuggestedFault] = useState<any>(null);
@@ -65,6 +69,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
         const dicts = await api.getDictionaries();
         setSections(dicts.sections);
         setAllEquipment(dicts.equipment);
+        setBrigades(dicts.brigades || []);
         const wList = await api.getWorkers();
         setWorkers(wList);
 
@@ -139,6 +144,10 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
       setError('Укажите описание проблемы');
       return;
     }
+    if (assignMode === 'brigade' && !brigadeId) {
+      setError('Выберите бригаду');
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -148,7 +157,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
         work_type: workType,
         description,
         equipment_id: Number(equipmentId),
-        assignee_id: assigneeId ? Number(assigneeId) : null,
+        assignee_id: assignMode === 'worker' && assigneeId ? Number(assigneeId) : null,
+        brigade_id: assignMode === 'brigade' && brigadeId ? Number(brigadeId) : null,
         priority,
         deadline: deadlineDate,
         comment: masterComment.trim() || undefined,
@@ -356,7 +366,56 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
               {loadingAi && <span className="text-[11px] text-emerald-400 animate-pulse">ИИ подбирает...</span>}
             </div>
 
-            {aiSuggestions.length > 0 && (
+            {/* Кому выдать: исполнителю или бригаде */}
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              {(['worker', 'brigade'] as const).map(mode => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setAssignMode(mode)}
+                  className={`min-h-[48px] rounded-xl border text-xs font-bold transition ${
+                    assignMode === mode
+                      ? 'bg-emerald-600 border-emerald-500 text-white'
+                      : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500'
+                  }`}
+                >
+                  {mode === 'worker' ? '👷 Исполнителю' : '👥 Бригаде'}
+                </button>
+              ))}
+            </div>
+
+            {assignMode === 'brigade' && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {brigades.map(b => {
+                    const members = workers.filter(w => w.brigade?.id === b.id);
+                    const free = members.filter(w => w.live?.state === 'free').length;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setBrigadeId(b.id)}
+                        className={`min-h-[48px] p-2 rounded-xl border text-left transition ${
+                          brigadeId === b.id
+                            ? 'bg-emerald-950/60 border-emerald-500'
+                            : 'bg-slate-900/60 border-slate-700/60 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="font-bold text-white text-xs">{b.name}</div>
+                        <div className={`text-[11px] ${free ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          {free ? '🟢' : '🟡'} свободно {free} из {members.length}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  ИИ назначит лучшего свободного члена бригады нужной специальности; выбор попадёт в журнал наряда.
+                </div>
+              </div>
+            )}
+
+            {assignMode === 'worker' && aiSuggestions.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                 {aiSuggestions.slice(0, 2).map((cand) => (
                   <div
@@ -384,6 +443,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
             )}
 
             {/* Выпадающий список всех исполнителей */}
+            {assignMode === 'worker' && (
             <select
               value={assigneeId}
               onChange={(e) => setAssigneeId(Number(e.target.value))}
@@ -396,6 +456,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                 </option>
               ))}
             </select>
+            )}
           </div>
 
           {/* Нормативный срок / Дедлайн (с пресетом Демо: 1 мин для Шага 4) */}

@@ -112,6 +112,7 @@ export interface WorkOrder {
   section: { id: number; name: string };
   equipment: { id: number; name: string; inv_no: string };
   assignee?: { id: number; full_name: string; short_name: string; specialty: string } | null;
+  brigade?: { id: number; name: string } | null;
   master: { id: number; full_name: string; short_name: string };
   deadline: string;
   created_at: string;
