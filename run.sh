@@ -57,4 +57,12 @@ elif systemctl is-active --quiet firewalld 2>/dev/null; then
 fi
 echo ""
 
-exec "$BACKEND_DIR/.venv/bin/uvicorn" app.main:app --host 0.0.0.0 --port 8000
+# Адрес, на котором слушает сервер.
+# 0.0.0.0 — доступен всем устройствам в вашей сети (нужно для телефона).
+# 127.0.0.1 — только этот компьютер, телефон подключиться не сможет.
+# Для показа в общей сети (хакатон, Wi-Fi) закомментируйте строку HOST="0.0.0.0"
+# и раскомментируйте строку HOST="127.0.0.1" ниже.
+HOST="0.0.0.0"
+# HOST="127.0.0.1"
+
+exec "$BACKEND_DIR/.venv/bin/uvicorn" app.main:app --host "$HOST" --port 8000
