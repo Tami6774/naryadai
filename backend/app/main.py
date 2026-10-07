@@ -4,14 +4,15 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .auth import decode_token
 from .config import BASE_DIR, CORS_ORIGINS, DEMO_MODE, MEDIA_DIR
 from .db import Base, engine
+from .netinfo import phone_urls, qr_svg
 from .realtime import manager
 from .routers import core, orders
 from .services import events  # noqa: F401 — регистрирует обработчики after_commit
@@ -53,6 +54,21 @@ app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 def health():
     # demo_mode — клиент скрывает быстрый вход и подсказку ПИН, когда режим выключен
     return {"status": "ok", "online": len(manager.online_user_ids), "demo_mode": DEMO_MODE}
+
+
+@app.get("/api/connect-info")
+def connect_info(request: Request):
+    """Адреса сервера в локальной сети: экран входа показывает их и QR-код для телефона."""
+    port = request.url.port or (443 if request.url.scheme == "https" else 80)
+    return {"urls": phone_urls(port, request.url.scheme)}
+
+
+@app.get("/api/connect-qr.svg", include_in_schema=False)
+def connect_qr(url: str):
+    if not url.startswith(("http://", "https://")) or len(url) > 300:
+        raise HTTPException(400, "Некорректный адрес")
+    return Response(qr_svg(url), media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.websocket("/ws")

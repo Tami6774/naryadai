@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Wrench, BarChart2, Key, AlertTriangle, ArrowRight, Settings } from 'lucide-react';
-import { getApiBaseUrl, setApiHost } from '../api';
+import { Shield, Wrench, BarChart2, Key, AlertTriangle, ArrowRight, Settings, Smartphone } from 'lucide-react';
+import { api, getApiBaseUrl, setApiHost } from '../api';
 
 export const LoginPage: React.FC = () => {
   const { login, quickSwitch, demoMode } = useAuth();
@@ -12,6 +12,14 @@ export const LoginPage: React.FC = () => {
   const [serverHost, setServerHost] = useState(() => getApiBaseUrl() || '');
   const [isEditingHost, setIsEditingHost] = useState(false);
   const [customHostInput, setCustomHostInput] = useState(() => getApiBaseUrl() || 'http://10.42.0.1:8000');
+  // Страница открыта на самом ПК с сервером — показываем адрес и QR-код для телефонов
+  const openedOnServerPc = ['localhost', '127.0.0.1'].includes(window.location.hostname) && !getApiBaseUrl();
+  const [phoneUrls, setPhoneUrls] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!openedOnServerPc) return;
+    api.getConnectInfo().then(r => setPhoneUrls(r.urls)).catch(() => setPhoneUrls([]));
+  }, [openedOnServerPc]);
 
   const demoAccounts = [
     { login: 'master1', name: 'Исмаилов Марат', role: 'Мастер смены', icon: Shield, color: 'text-emerald-400' },
@@ -121,6 +129,29 @@ export const LoginPage: React.FC = () => {
               ))}
             </div>
           </div>
+          )}
+
+          {/* Открыть на телефоне: адрес в локальной сети + QR-код */}
+          {openedOnServerPc && phoneUrls.length > 0 && (
+            <div className="pt-3 border-t border-slate-700/60 text-xs">
+              <div className="flex items-center space-x-3 bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+                <img
+                  src={api.getConnectQrUrl(phoneUrls[0])}
+                  alt="QR-код для входа с телефона"
+                  className="w-24 h-24 bg-white rounded-lg p-1 shrink-0"
+                />
+                <div className="space-y-1">
+                  <div className="font-bold text-slate-200 flex items-center space-x-1">
+                    <Smartphone size={14} className="text-emerald-400" />
+                    <span>Открыть на телефоне</span>
+                  </div>
+                  <div className="text-slate-400">Подключите телефон к той же сети Wi-Fi и отсканируйте QR-код или введите:</div>
+                  {phoneUrls.map(u => (
+                    <div key={u} className="font-mono text-emerald-400 break-all">{u}</div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Скачать APK */}

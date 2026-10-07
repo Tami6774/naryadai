@@ -83,6 +83,25 @@ echo    • Главный механик: boss      (Сагинтаев Б.А.)
 echo ======================================================================
 echo.
 
+:: Адрес и QR-код для телефона (тот же Wi-Fi)
+set PYTHONIOENCODING=utf-8
+cd backend
+call .venv\Scripts\python.exe -m app.netinfo --port 8000
+cd ..
+
+:: Брандмауэр Windows: правило для порта 8000 (сработает при запуске от имени администратора)
+netsh advfirewall firewall show rule name="NaryadAI 8000" >nul 2>&1
+if errorlevel 1 (
+    netsh advfirewall firewall add rule name="NaryadAI 8000" dir=in action=allow protocol=TCP localport=8000 >nul 2>&1
+    if errorlevel 1 (
+        echo [!] Если телефон не открывает страницу: разрешите доступ к Python во всплывающем окне
+        echo     брандмауэра или запустите этот файл от имени администратора.
+    ) else (
+        echo [OK] Добавлено правило брандмауэра для порта 8000.
+    )
+)
+echo.
+
 :: Автоматическое открытие браузера
 start http://localhost:8000
 

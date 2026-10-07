@@ -140,6 +140,9 @@ export const api = {
       body: JSON.stringify({ login, pin }),
     }),
   getMe: () => request<User>('/auth/me'),
+  // Адреса сервера в локальной сети (для входа с телефона) и QR-код к ним
+  getConnectInfo: () => request<{ urls: string[] }>('/connect-info'),
+  getConnectQrUrl: (url: string) => getFullApiUrl(`/connect-qr.svg?url=${encodeURIComponent(url)}`),
   getDemoUsers: () => request<Array<{ login: string; full_name: string; role: string; specialty: string }>>('/auth/demo-users'),
 
   // Dictionaries

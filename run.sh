@@ -44,4 +44,17 @@ echo "------------------------------------------------------------------"
 echo ""
 
 cd "$BACKEND_DIR"
+
+# Адрес и QR-код для телефона (тот же Wi-Fi)
+"$BACKEND_DIR/.venv/bin/python" -m app.netinfo --port 8000 || true
+
+# Брандмауэр может блокировать входящие подключения с телефона
+if systemctl is-active --quiet ufw 2>/dev/null; then
+    echo "🔒 Включён ufw. Если телефон не открывает страницу: sudo ufw allow 8000/tcp"
+elif systemctl is-active --quiet firewalld 2>/dev/null; then
+    echo "🔒 Включён firewalld. Если телефон не открывает страницу:"
+    echo "   sudo firewall-cmd --add-port=8000/tcp --permanent && sudo firewall-cmd --reload"
+fi
+echo ""
+
 exec "$BACKEND_DIR/.venv/bin/uvicorn" app.main:app --host 0.0.0.0 --port 8000

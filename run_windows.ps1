@@ -71,6 +71,27 @@ Write-Host " Демо-аккаунты (ПИН: 1234): master1, ahmetov, serikov
 Write-Host "======================================================================" -ForegroundColor Green
 Write-Host ""
 
+# Адрес и QR-код для телефона (тот же Wi-Fi)
+$env:PYTHONIOENCODING = "utf-8"
+Push-Location (Join-Path $PSScriptRoot "backend")
+& $venvPy -m app.netinfo --port 8000
+Pop-Location
+
+# Брандмауэр Windows: разрешаем входящие на порт 8000, чтобы открылось с телефона
+$ruleName = "NaryadAI 8000"
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
+    if ($isAdmin) {
+        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow -Profile Any | Out-Null
+        Write-Host "🔓 Добавлено правило брандмауэра для порта 8000." -ForegroundColor Green
+    } else {
+        Write-Host "🔒 Если телефон не открывает страницу — разрешите доступ к Python во всплывающем окне брандмауэра" -ForegroundColor Yellow
+        Write-Host "   или выполните в PowerShell от имени администратора:" -ForegroundColor Yellow
+        Write-Host "   New-NetFirewallRule -DisplayName '$ruleName' -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow" -ForegroundColor White
+    }
+}
+Write-Host ""
+
 Start-Process "http://localhost:8000"
 
 Push-Location (Join-Path $PSScriptRoot "backend")
