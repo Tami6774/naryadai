@@ -44,3 +44,9 @@ backend/.env
 *.swo
 .DS_Store
 Thumbs.db
+
+# Материалы кейса от партнёра (положение, п. 9.4) — не публиковать
+case_requirements.txt
+
+# Вывод scripts/export_for_ai_studio.py
+export/

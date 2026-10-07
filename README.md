@@ -178,6 +178,28 @@ cd backend
 
 ---
 
+## 📦 Используемые библиотеки, фреймворки и модели
+
+Все компоненты общедоступные (open source), код проекта написан в период хакатона.
+
+| Область | Компонент | Назначение |
+|---|---|---|
+| Backend | FastAPI, Starlette, Uvicorn | REST API и сервер |
+| Backend | SQLAlchemy 2, SQLite / PostgreSQL (`psycopg`) | Хранение данных; SQLite по умолчанию, PostgreSQL в Docker |
+| Backend | Pydantic v2 | Схемы и валидация данных |
+| Backend | PyJWT | Авторизация по токенам |
+| Backend | Pillow | Сжатие фото нарядов |
+| Backend | openpyxl | Выгрузка отчётов в Excel |
+| Backend | qrcode | QR-код для входа с телефона |
+| Backend | unittest (стандартная библиотека), httpx | Автотесты |
+| Frontend | React 18, TypeScript, Vite | Веб-панель и мобильный PWA |
+| Frontend | Tailwind CSS, lucide-react | Стили и иконки |
+| Мобильное приложение | Capacitor (Android) | Сборка APK из PWA |
+| Инфраструктура | Docker Compose, PostgreSQL 16 | Необязательный запуск в контейнерах |
+| ИИ-модель (необязательно) | Claude (Anthropic API, пакет `anthropic`) | Проверка соответствия работ и фото «до/после»; включается ключом `ANTHROPIC_API_KEY`, без него работают правила |
+
+---
+
 ## 🤖 Использование ИИ при создании проекта
 
 Проект создан с помощью ИИ-ассистентов **Gemini AI** (Google) и **Claude AI** (Anthropic): они использовались для написания и рефакторинга кода, тестов и документации. Постановка задачи, архитектурные решения, проверка и приёмка результата — за автором проекта.
