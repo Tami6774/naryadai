@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import (
@@ -36,12 +36,17 @@ WEIGHT_LABELS = {
 FINISHED = {Status.done, Status.ai_review, Status.closed, Status.rework}
 
 
-def _period_orders(db: Session, start: datetime, end: datetime) -> list[WorkOrder]:
-    return db.scalars(
-        select(WorkOrder).where(WorkOrder.created_at >= start, WorkOrder.created_at < end)
-        .options(selectinload(WorkOrder.assessments), selectinload(WorkOrder.events),
-                 selectinload(WorkOrder.fault_code))
-    ).all()
+def _period_orders(db: Session, start: datetime, end: datetime,
+                   section_id: int | None = None, brigade_id: int | None = None) -> list[WorkOrder]:
+    q = (select(WorkOrder).where(WorkOrder.created_at >= start, WorkOrder.created_at < end)
+         .options(selectinload(WorkOrder.assessments), selectinload(WorkOrder.events),
+                  selectinload(WorkOrder.fault_code)))
+    if section_id:
+        q = q.where(WorkOrder.section_id == section_id)
+    if brigade_id:  # наряды на бригаду и наряды её членов
+        members = select(Employee.id).where(Employee.brigade_id == brigade_id)
+        q = q.where(or_(WorkOrder.brigade_id == brigade_id, WorkOrder.assignee_id.in_(members)))
+    return db.scalars(q).all()
 
 
 def _repeat_failure_ids(db: Session, orders: list[WorkOrder]) -> set[int]:
@@ -163,8 +168,9 @@ def current_shift() -> tuple[datetime, datetime, str]:
     return s, e, "night"
 
 
-def shift_report(db: Session, start: datetime, end: datetime) -> dict:
-    orders = _period_orders(db, start, end)
+def shift_report(db: Session, start: datetime, end: datetime,
+                 section_id: int | None = None, brigade_id: int | None = None) -> dict:
+    orders = _period_orders(db, start, end, section_id, brigade_id)
     issued = len(orders)
     done = [o for o in orders if o.status in FINISHED]
     closed = [o for o in orders if o.status == Status.closed]
@@ -188,11 +194,12 @@ def shift_report(db: Session, start: datetime, end: datetime) -> dict:
         if o.work_type == "unplanned" and o.equipment:
             by_equipment[o.equipment.name] += 1
 
+    period_word = "смену" if (end - start) <= timedelta(hours=12) else "период"
     summary = (
-        f"За смену выдано {issued} нарядов, выполнено {len(done)}, закрыто мастером {len(closed)}, "
+        f"За {period_word} выдано {issued} нарядов, выполнено {len(done)}, закрыто мастером {len(closed)}, "
         f"просрочено {len(overdue)}, отклонений {rejected}. "
         f"Средняя оценка качества — {sum(scores) / len(scores):.0f}/100. " if scores else
-        f"За смену выдано {issued} нарядов, выполнено {len(done)}, просрочено {len(overdue)}. "
+        f"За {period_word} выдано {issued} нарядов, выполнено {len(done)}, просрочено {len(overdue)}. "
     )
     if by_equipment:
         top = max(by_equipment, key=by_equipment.get)

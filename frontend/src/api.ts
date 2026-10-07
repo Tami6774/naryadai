@@ -132,6 +132,41 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   return res.json();
 }
 
+/** Период и фильтры отчётов. Даты — локальное время ПК в формате YYYY-MM-DDTHH:mm:ss. */
+export interface ReportParams {
+  start?: string;
+  end?: string;
+  days?: number;
+  section_id?: number | '';
+  brigade_id?: number | '';
+}
+
+function reportQuery(params: ReportParams): string {
+  const q = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
+  });
+  const str = q.toString();
+  return str ? `?${str}` : '';
+}
+
+async function downloadFile(endpoint: string, baseName: string, errorText: string): Promise<void> {
+  const token = getToken();
+  const res = await fetch(getFullApiUrl(endpoint), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw await errorFromResponse(res, errorText);
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${baseName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export const api = {
   // Auth
   login: (login: string, pin: string) => 
@@ -254,9 +289,14 @@ export const api = {
 
   // Reports & Analytics
   getCounters: () => request<{ shift: string; issued: number; done: number; overdue: number; equipment_down: number }>('/dashboard/counters'),
-  getShiftReport: (start?: string, end?: string) => request<any>('/reports/shift'),
-  getRating: () => request<any>('/reports/rating'),
-  getBrigadesRating: (days: number = 30) => request<any>(`/reports/brigades?days=${days}`),
+  getShiftReport: (params: ReportParams = {}) => request<any>(`/reports/shift${reportQuery(params)}`),
+  getRating: (params: ReportParams = {}) => request<any>(`/reports/rating${reportQuery(params)}`),
+  getBrigadesRating: (params: ReportParams | number = 30) =>
+    request<any>(`/reports/brigades${reportQuery(typeof params === 'number' ? { days: params } : params)}`),
+  getDowntimeReport: (params: ReportParams = {}) => request<any>(`/reports/downtime${reportQuery(params)}`),
+  getForecast: () => request<any[]>('/analytics/forecast'),
+  getEquipmentHistory: (equipmentId: number, days: number = 365) =>
+    request<any>(`/equipment/${equipmentId}/history?days=${days}`),
   getAnomalies: (days: number = 90) => request<any>(`/analytics/anomalies?days=${days}`),
   getMaterialsReport: (days: number = 30) => request<any>(`/reports/materials?days=${days}`),
 
@@ -278,53 +318,13 @@ export const api = {
     return `${getFullApiUrl(`/orders/${orderId}/print`)}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
   },
 
-  // Excel Downloads
-  downloadShiftExcel: async () => {
-    const token = getToken();
-    const res = await fetch(getFullApiUrl('/reports/shift/export/excel'), {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) throw new Error('Ошибка выгрузки отчёта за смену');
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `smena_report_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
-  },
-  downloadRatingExcel: async (days: number = 30) => {
-    const token = getToken();
-    const res = await fetch(getFullApiUrl(`/reports/rating/export/excel?days=${days}`), {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) throw new Error('Ошибка выгрузки рейтинга');
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `reiting_ispolnitelei_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
-  },
-  downloadMaterialsExcel: async (days: number = 30) => {
-    const token = getToken();
-    const res = await fetch(getFullApiUrl(`/reports/materials/export/excel?days=${days}`), {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) throw new Error('Ошибка выгрузки списания ТМЦ');
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tmc_spisanie_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
-  },
+  // Excel Downloads (период и фильтры — как у отчёта на экране)
+  downloadShiftExcel: (params: ReportParams = {}) =>
+    downloadFile(`/reports/shift/export/excel${reportQuery(params)}`, 'smena_report', 'Ошибка выгрузки отчёта за смену'),
+  downloadRatingExcel: (params: ReportParams | number = 30) =>
+    downloadFile(`/reports/rating/export/excel${reportQuery(typeof params === 'number' ? { days: params } : params)}`,
+      'reiting_ispolnitelei', 'Ошибка выгрузки рейтинга'),
+  downloadMaterialsExcel: (params: ReportParams | number = 30) =>
+    downloadFile(`/reports/materials/export/excel${reportQuery(typeof params === 'number' ? { days: params } : params)}`,
+      'tmc_spisanie', 'Ошибка выгрузки списания ТМЦ'),
 };

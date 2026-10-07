@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { WorkOrder, User, Priority } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { EquipmentHistoryModal } from './EquipmentHistoryModal';
 import { 
   X, CheckCircle, AlertOctagon, Clock, Wrench, Shield, Sparkles, 
   Image as ImageIcon, ArrowRight, MessageSquare, Printer,
-  UserPlus, Flag, Ban 
+  UserPlus, Flag, Ban, History,
 } from 'lucide-react';
 
 interface OrderDetailsModalProps {
@@ -34,6 +35,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
   const [showPriorityModal, setShowPriorityModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
 
   const fetchOrder = async () => {
     try {
@@ -189,6 +191,17 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            {user?.role !== 'worker' && (
+              <button
+                type="button"
+                onClick={() => setShowHistory(true)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-700/80 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl border border-slate-600 text-xs font-semibold transition"
+                title="История нарядов, ремонтов и простоев по оборудованию"
+              >
+                <History size={15} className="text-emerald-400" />
+                <span className="hidden sm:inline">История</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => window.open(api.getOrderPrintUrl(order.id), '_blank')}
@@ -224,6 +237,9 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
               <p className="font-medium text-slate-200 mt-0.5">
                 {order.assignee ? `${order.assignee.full_name} (${order.assignee.specialty})` : 'Не назначен'}
               </p>
+              {order.brigade && (
+                <p className="text-[11px] text-slate-400 mt-0.5">Наряд на бригаду: {order.brigade.name}</p>
+              )}
             </div>
             <div>
               <span className="text-slate-400 text-xs block">Срок исполнения:</span>
@@ -403,6 +419,21 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                     : 'bg-emerald-900/60 text-emerald-200 border border-emerald-700'
                 }`}>
                   {order.assessment.verdict_label}
+                </span>
+                {order.assessment.photo_score != null && (
+                  <span className="ml-2 inline-block text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-200 border border-slate-600">
+                    Фото: {order.assessment.photo_score}/5
+                  </span>
+                )}
+                {order.assessment.needs_master_check && (
+                  <span className="ml-2 inline-block text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-900/60 text-amber-200 border border-amber-700">
+                    Нужна проверка мастером
+                  </span>
+                )}
+                <span className="ml-2 inline-block text-[10px] text-slate-400" title="Чем выполнена проверка">
+                  {String(order.assessment.details?.engine || '').includes('+')
+                    ? 'Правила + языковая и мультимодальная модель'
+                    : 'Правила и онтология (без облака)'}
                 </span>
               </div>
 
@@ -657,6 +688,9 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
         )}
 
       </div>
+      {showHistory && (
+        <EquipmentHistoryModal equipmentId={order.equipment.id} onClose={() => setShowHistory(false)} />
+      )}
     </div>
   );
 };

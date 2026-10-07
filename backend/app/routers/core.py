@@ -19,7 +19,7 @@ from ..models import (
     Role,
     Section,
 )
-from ..schemas import AssistantIn, LoginIn, OnShiftIn, PushTokenIn
+from ..schemas import AssistantIn, LoginIn, OnShiftIn, PushTokenIn, _to_local_naive
 from ..serializers import employee_out, equipment_out
 from ..services import reports
 from ..services.events import broadcast
@@ -159,16 +159,26 @@ def read_all(db: Session = Depends(get_db), user: Employee = Depends(current_use
 # ---------------------------------------------------------------- отчёты
 
 def _period(start: datetime | None, end: datetime | None, days: int) -> tuple[datetime, datetime]:
-    end = end or datetime.now()
+    # время с поясом из браузера → локальное время сервера (как в БД)
+    start = _to_local_naive(start) if start else None
+    end = _to_local_naive(end) if end else datetime.now()
     return start or end - timedelta(days=days), end
+
+
+def _shift_period(start: datetime | None, end: datetime | None) -> tuple[datetime, datetime]:
+    """Без start — текущая смена; иначе произвольный период (смена, сутки, неделя, месяц…)."""
+    if not start:
+        s, e, _ = reports.current_shift()
+        return s, e
+    return _period(start, end, 0)
 
 
 @router.get("/reports/shift")
 def shift_report(start: datetime | None = None, end: datetime | None = None,
+                 section_id: int | None = None, brigade_id: int | None = None,
                  db: Session = Depends(get_db), user: Employee = Depends(staff_view)):
-    if not start:
-        start, end, _ = reports.current_shift()
-    return reports.shift_report(db, start, end or datetime.now())
+    s, e = _shift_period(start, end)
+    return reports.shift_report(db, s, e, section_id, brigade_id)
 
 
 @router.get("/reports/rating")
@@ -193,13 +203,12 @@ def brigades_rating(start: datetime | None = None, end: datetime | None = None, 
 
 @router.get("/reports/shift/export/excel")
 def export_shift_excel(start: datetime | None = None, end: datetime | None = None,
+                       section_id: int | None = None, brigade_id: int | None = None,
                        db: Session = Depends(get_db), user: Employee = Depends(staff_view)):
     from fastapi.responses import Response
     from ..services import export as export_svc
-    if not start:
-        start, end, _ = reports.current_shift()
-    end = end or datetime.now()
-    bio = export_svc.export_shift_report_excel(db, start, end)
+    start, end = _shift_period(start, end)
+    bio = export_svc.export_shift_report_excel(db, start, end, section_id, brigade_id)
     filename = f"shift_report_{start.strftime('%Y%m%d_%H%M')}.xlsx"
     return Response(
         content=bio.getvalue(),
@@ -264,6 +273,31 @@ def counters(db: Session = Depends(get_db), user: Employee = Depends(staff_view)
 def anomalies(days: int = 90, db: Session = Depends(get_db), user: Employee = Depends(staff_view)):
     from ..services.analytics import detect_anomalies
     return detect_anomalies(db, days)
+
+
+@router.get("/analytics/forecast")
+def forecast(db: Session = Depends(get_db), user: Employee = Depends(staff_view)):
+    from ..services.analytics import forecast_failures
+    return forecast_failures(db)
+
+
+@router.get("/reports/downtime")
+def downtime_report(start: datetime | None = None, end: datetime | None = None, days: int = 30,
+                    section_id: int | None = None, db: Session = Depends(get_db),
+                    user: Employee = Depends(staff_view)):
+    from ..services.analytics import downtime_report as build
+    s, e = _period(start, end, days)
+    return build(db, s, e, section_id)
+
+
+@router.get("/equipment/{equipment_id}/history")
+def equipment_history(equipment_id: int, days: int = 365, db: Session = Depends(get_db),
+                      user: Employee = Depends(staff_view)):
+    from ..services.analytics import equipment_history as build
+    data = build(db, equipment_id, days)
+    if data is None:
+        raise HTTPException(404, "Оборудование не найдено")
+    return data
 
 
 @router.post("/assistant/ask")

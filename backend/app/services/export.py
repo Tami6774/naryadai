@@ -88,8 +88,9 @@ def _auto_column_widths(ws):
 # =====================================================================
 # 1. Экспорт отчёта за смену в Excel
 # =====================================================================
-def export_shift_report_excel(db: Session, start: datetime, end: datetime) -> io.BytesIO:
-    data = reports.shift_report(db, start, end)
+def export_shift_report_excel(db: Session, start: datetime, end: datetime,
+                              section_id: int | None = None, brigade_id: int | None = None) -> io.BytesIO:
+    data = reports.shift_report(db, start, end, section_id, brigade_id)
     wb = Workbook()
 
     # Лист 1: Сводка смены
@@ -175,7 +176,7 @@ def export_shift_report_excel(db: Session, start: datetime, end: datetime) -> io
         ws_orders.cell(row=1, column=c_idx, value=h)
     _style_header_row(ws_orders, 1, len(order_headers))
 
-    orders = reports._period_orders(db, start, end)
+    orders = reports._period_orders(db, start, end, section_id, brigade_id)
     r_idx = 2
     for o in orders:
         ws_orders.cell(row=r_idx, column=1, value=o.number).alignment = Alignment(horizontal="center")

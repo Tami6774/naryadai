@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
+import { PeriodFilter, PeriodValue } from '../components/PeriodFilter';
 import { 
   Award, FileText, FileSpreadsheet, Users, Clock, 
   TrendingUp, CheckCircle, AlertTriangle, ShieldCheck, RefreshCw, BarChart2
@@ -11,14 +12,18 @@ export const RatingShiftView: React.FC = () => {
   const [brigadesData, setBrigadesData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<string | null>(null);
+  // Период и фильтры отчёта (раздел 7): смена / сутки / неделя / месяц / произвольный; участок, бригада
+  const [period, setPeriod] = useState<PeriodValue | null>(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    if (!period) return;
     setLoading(true);
+    const { start, end, section_id, brigade_id } = period.params;
     try {
       const [sh, rate, brig] = await Promise.all([
-        api.getShiftReport(),
-        api.getRating(),
-        api.getBrigadesRating(30),
+        api.getShiftReport({ start, end, section_id, brigade_id }),
+        api.getRating({ start, end, brigade_id }),
+        api.getBrigadesRating({ start, end }),
       ]);
       setShiftData(sh);
       setRatingData(rate);
@@ -28,16 +33,18 @@ export const RatingShiftView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [period]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
+
+  const periodLabel = period?.label || 'текущую смену';
 
   const handleDownloadShift = async () => {
     setExporting('shift');
     try {
-      await api.downloadShiftExcel();
+      await api.downloadShiftExcel(period?.params);
     } catch (err: any) {
       alert(err.message || 'Ошибка выгрузки сменного отчёта');
     } finally {
@@ -48,7 +55,7 @@ export const RatingShiftView: React.FC = () => {
   const handleDownloadRating = async () => {
     setExporting('rating');
     try {
-      await api.downloadRatingExcel(30);
+      await api.downloadRatingExcel({ start: period?.params.start, end: period?.params.end, brigade_id: period?.params.brigade_id });
     } catch (err: any) {
       alert(err.message || 'Ошибка выгрузки рейтинга');
     } finally {
@@ -71,7 +78,7 @@ export const RatingShiftView: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Оперативная сводка текущей смены, MTTR, дисциплина слесарей и соревнование ремонтных бригад
+            Сводка за {periodLabel}: MTTR, дисциплина слесарей и соревнование ремонтных бригад
           </p>
         </div>
 
@@ -103,6 +110,8 @@ export const RatingShiftView: React.FC = () => {
         </div>
       </div>
 
+      <PeriodFilter onChange={setPeriod} showSection showBrigade />
+
       {loading ? (
         <div className="text-center py-16 text-emerald-400 font-bold animate-pulse flex flex-col items-center justify-center space-y-3">
           <Award className="animate-spin text-emerald-400" size={32} />
@@ -110,7 +119,25 @@ export const RatingShiftView: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Секция 1: Показатели эффективности текущей смены (KPI) */}
+          {/* Итоги периода: выдано / выполнено / просрочено / отклонено (раздел 7, отчёт за смену) */}
+          {shiftData && (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+              {[
+                { label: 'Выдано', value: shiftData.issued, cls: 'text-white' },
+                { label: 'Выполнено', value: shiftData.done, cls: 'text-emerald-400' },
+                { label: 'Закрыто мастером', value: shiftData.closed, cls: 'text-emerald-300' },
+                { label: 'Просрочено', value: shiftData.overdue, cls: 'text-red-400' },
+                { label: 'Отклонено', value: shiftData.rejected, cls: 'text-amber-400' },
+              ].map(k => (
+                <div key={k.label} className="bg-slate-800 px-4 py-3 rounded-xl border border-slate-700">
+                  <div className="text-[11px] text-slate-400 font-semibold">{k.label}</div>
+                  <div className={`text-xl font-black ${k.cls}`}>{k.value ?? 0}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Секция 1: Показатели эффективности за период (KPI) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow">
               <div className="text-xs text-slate-400 font-semibold flex items-center space-x-1.5">
@@ -153,7 +180,7 @@ export const RatingShiftView: React.FC = () => {
               <div className="text-2xl font-black text-amber-400 mt-1">
                 {shiftData?.downtime_hours ? `${shiftData.downtime_hours} ч` : '0 ч'}
               </div>
-              <div className="text-[11px] text-slate-500 mt-0.5">В текущую смену</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">За {periodLabel}</div>
             </div>
           </div>
 
@@ -162,7 +189,7 @@ export const RatingShiftView: React.FC = () => {
             <div className="p-4 bg-slate-800/90 rounded-2xl border border-slate-700 shadow-md">
               <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs mb-1">
                 <FileText size={15} />
-                <span>ИИ-Резюме текущей смены:</span>
+                <span>ИИ-резюме за {periodLabel}:</span>
               </div>
               <p className="text-xs text-slate-200 leading-relaxed">
                 {shiftData.summary}
@@ -237,7 +264,7 @@ export const RatingShiftView: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <Award className="text-emerald-400" size={18} />
                 <h3 className="font-bold text-base text-white">
-                  Индивидуальный рейтинг слесарей (Лидерборд смены)
+                  Индивидуальный рейтинг исполнителей за {periodLabel}
                 </h3>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -302,7 +329,7 @@ export const RatingShiftView: React.FC = () => {
             <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl space-y-3">
               <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
                 <BarChart2 size={14} className="text-emerald-400" />
-                <span>Загрузка ремонтного персонала в смене:</span>
+                <span>Загрузка ремонтного персонала за {periodLabel}:</span>
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-xs">
                 {shiftData.load.map((item: any) => (

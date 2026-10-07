@@ -2,25 +2,38 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { 
   Sparkles, AlertOctagon, TrendingUp, ShieldAlert, 
-  FileSpreadsheet, Package, RefreshCw, Layers, CheckCircle2 
+  FileSpreadsheet, Package, RefreshCw, Layers, CheckCircle2, Clock, Activity
 } from 'lucide-react';
+import { EquipmentHistoryModal } from '../components/EquipmentHistoryModal';
+import { OrderDetailsModal } from '../components/OrderDetailsModal';
+
+const LEVEL_STYLE: Record<string, { label: string; cls: string }> = {
+  high: { label: 'Высокий риск', cls: 'bg-red-900 text-red-200 border-red-700' },
+  medium: { label: 'Средний риск', cls: 'bg-amber-900 text-amber-200 border-amber-700' },
+  low: { label: 'Низкий риск', cls: 'bg-slate-700 text-slate-300 border-slate-600' },
+};
 
 export const AnalyticsView: React.FC = () => {
   const [periodDays, setPeriodDays] = useState<number>(90);
   const [anomaliesData, setAnomaliesData] = useState<any>(null);
   const [materialsData, setMaterialsData] = useState<any>(null);
+  const [downtimeData, setDowntimeData] = useState<any>(null);
+  const [historyEquipmentId, setHistoryEquipmentId] = useState<number | null>(null);
+  const [openOrderId, setOpenOrderId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<string | null>(null);
 
   const loadData = async (days: number) => {
     setLoading(true);
     try {
-      const [anom, mat] = await Promise.all([
+      const [anom, mat, down] = await Promise.all([
         api.getAnomalies(days),
         api.getMaterialsReport(days),
+        api.getDowntimeReport({ days }),
       ]);
       setAnomaliesData(anom);
       setMaterialsData(mat);
+      setDowntimeData(down);
     } catch (err) {
       console.error('Error loading analytics data', err);
     } finally {
@@ -58,7 +71,7 @@ export const AnalyticsView: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Нейросетевой аудит поломок за 3 месяца, выявление скрытых аномалий после ППР и мониторинг перерасхода материалов
+            ИИ-аудит поломок за 3 месяца: аномалии после ППР, прогноз отказов, простои и перерасход материалов
           </p>
         </div>
 
@@ -180,7 +193,7 @@ export const AnalyticsView: React.FC = () => {
                   Топ оборудования по количеству внеплановых остановок
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Узлы с максимальным коэффициентом превышения средней аварийности по цехам
+                  Узлы с максимальным коэффициентом превышения средней аварийности. Нажмите на строку — полная история агрегата
                 </p>
               </div>
             </div>
@@ -199,7 +212,11 @@ export const AnalyticsView: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-700/60 font-medium">
                   {anomaliesData?.top_problematic?.map((row: any) => (
-                    <tr key={row.equipment_id} className={row.ratio_to_avg >= 2.0 ? 'bg-red-950/20 hover:bg-red-950/30' : 'hover:bg-slate-750'}>
+                    <tr
+                      key={row.equipment_id}
+                      onClick={() => setHistoryEquipmentId(row.equipment_id)}
+                      className={`cursor-pointer ${row.ratio_to_avg >= 2.0 ? 'bg-red-950/20 hover:bg-red-950/30' : 'hover:bg-slate-700/40'}`}
+                    >
                       <td className="py-2.5 px-3 font-bold text-white flex items-center space-x-1.5">
                         {row.ratio_to_avg >= 2.0 && <AlertOctagon size={13} className="text-red-400" />}
                         <span>{row.name}</span>
@@ -221,6 +238,118 @@ export const AnalyticsView: React.FC = () => {
               </table>
             </div>
           </div>
+
+          {/* Прогноз вероятных отказов (раздел 6.5, бонус) */}
+          {anomaliesData?.forecast?.length > 0 && (
+            <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl space-y-3">
+              <div>
+                <h3 className="font-bold text-sm text-slate-200 flex items-center space-x-2">
+                  <Activity size={16} className="text-red-400" />
+                  <span>Прогноз отказов на 7 дней</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Отказы — пуассоновский поток: интенсивность по последним 30 дням (вес 60%) и предыдущим 90 (40%);
+                  вероятность отказа P = 1 − e<sup>−λ·7</sup>. Риск оценивается относительно среднего по парку.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {anomaliesData.forecast.slice(0, 6).map((f: any) => (
+                  <button
+                    key={f.equipment_id}
+                    type="button"
+                    onClick={() => setHistoryEquipmentId(f.equipment_id)}
+                    className="text-left bg-slate-900/70 hover:bg-slate-900 border border-slate-700 rounded-xl p-3 space-y-1.5 transition"
+                  >
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="font-bold text-white text-xs">{f.name}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${LEVEL_STYLE[f.level]?.cls}`}>
+                        {LEVEL_STYLE[f.level]?.label} · {f.probability_7d}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${f.level === 'high' ? 'bg-red-500' : f.level === 'medium' ? 'bg-amber-500' : 'bg-slate-400'}`}
+                        style={{ width: `${f.probability_7d}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">{f.explanation}</p>
+                    <p className="text-[11px] text-emerald-400 leading-snug">💡 {f.recommendation}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Отчёт по простоям оборудования (раздел 7) */}
+          {downtimeData && (
+            <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl space-y-3">
+              <div>
+                <h3 className="font-bold text-sm text-slate-200 flex items-center space-x-2">
+                  <Clock size={16} className="text-amber-400" />
+                  <span>Простои оборудования за {periodDays} дней</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Внеплановый простой — от выдачи наряда до «Исполнено»; плановый — чистое время работ ППР.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-3">
+                  <div className="text-slate-400">Внеплановый простой</div>
+                  <div className="text-lg font-black text-red-400">{downtimeData.totals.unplanned_hours} ч</div>
+                </div>
+                <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-3">
+                  <div className="text-slate-400">Плановые работы</div>
+                  <div className="text-lg font-black text-emerald-400">{downtimeData.totals.planned_hours} ч</div>
+                </div>
+                <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-3">
+                  <div className="text-slate-400">Доля внеплановых</div>
+                  <div className="text-lg font-black text-amber-400">{downtimeData.totals.unplanned_share}%</div>
+                </div>
+                <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-3">
+                  <div className="text-slate-400">Главная причина</div>
+                  <div className="text-sm font-black text-white">
+                    {downtimeData.by_fault[0] ? `${downtimeData.by_fault[0].code} · ${downtimeData.by_fault[0].hours} ч` : '—'}
+                  </div>
+                  <div className="text-[10px] text-slate-400 truncate">{downtimeData.by_fault[0]?.name}</div>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] border-b border-slate-700">
+                    <tr>
+                      <th className="py-2 px-3">Оборудование</th>
+                      <th className="py-2 px-3">Участок</th>
+                      <th className="py-2 px-3 text-right">Внеплан., ч</th>
+                      <th className="py-2 px-3 text-right">ППР, ч</th>
+                      <th className="py-2 px-3">Доля внеплановых</th>
+                      <th className="py-2 px-3">Причины (шифр · ч)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/60">
+                    {downtimeData.items.slice(0, 10).map((row: any) => (
+                      <tr key={row.equipment_id} onClick={() => setHistoryEquipmentId(row.equipment_id)} className="cursor-pointer hover:bg-slate-700/40">
+                        <td className="py-2 px-3 font-bold text-white">{row.name}</td>
+                        <td className="py-2 px-3 text-slate-400">{row.section}</td>
+                        <td className="py-2 px-3 text-right font-bold text-red-400">{row.unplanned_hours}</td>
+                        <td className="py-2 px-3 text-right">{row.planned_hours}</td>
+                        <td className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                              <div className="h-full bg-amber-500" style={{ width: `${row.unplanned_share}%` }} />
+                            </div>
+                            <span>{row.unplanned_share}%</span>
+                          </div>
+                        </td>
+                        <td className="py-2 px-3 font-mono text-emerald-400">
+                          {row.top_causes.map((c: any) => `${c.code} · ${c.hours}`).join(', ') || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Блок контроля списания ТМЦ (Раздел 7 ТЗ) */}
           <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl space-y-4">
@@ -323,6 +452,17 @@ export const AnalyticsView: React.FC = () => {
 
           </div>
         </>
+      )}
+
+      {historyEquipmentId && (
+        <EquipmentHistoryModal
+          equipmentId={historyEquipmentId}
+          onClose={() => setHistoryEquipmentId(null)}
+          onOpenOrder={setOpenOrderId}
+        />
+      )}
+      {openOrderId && (
+        <OrderDetailsModal orderId={openOrderId} onClose={() => setOpenOrderId(null)} onRefresh={() => {}} />
       )}
     </div>
   );
