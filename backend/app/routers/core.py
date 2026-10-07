@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from ..auth import create_token, current_user, require_roles, verify_pin
+from ..config import DEMO_MODE
 from ..db import get_db
 from ..models import (
     Brigade,
@@ -83,6 +84,8 @@ def push_token(data: PushTokenIn, db: Session = Depends(get_db), user: Employee 
 @router.get("/auth/demo-users")
 def demo_users(db: Session = Depends(get_db)):
     """Список тестовых учёток для экрана входа (только для демо)."""
+    if not DEMO_MODE:
+        raise HTTPException(404, "Демо-режим отключен в конфигурации сервера")
     users = db.scalars(select(Employee).order_by(Employee.role, Employee.full_name)).all()
     return [{"login": u.login, "full_name": u.full_name, "role": u.role, "specialty": u.specialty}
             for u in users]

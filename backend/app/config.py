@@ -8,7 +8,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Для PostgreSQL: DATABASE_URL=postgresql+psycopg://naryad:naryad@localhost:5432/naryad
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'naryad.db'}")
 
-JWT_SECRET = os.getenv("JWT_SECRET", "naryad-ai-kostanai-minerals-production-secret-key-32b")
+_DEFAULT_JWT_SECRET = "naryad-ai-kostanai-minerals-production-secret-key-32b"
+JWT_SECRET = os.getenv("JWT_SECRET", _DEFAULT_JWT_SECRET)
 JWT_TTL_HOURS = int(os.getenv("JWT_TTL_HOURS", "24"))
 
 MEDIA_DIR = Path(os.getenv("MEDIA_DIR", BASE_DIR / "media"))
@@ -26,3 +27,10 @@ ACCEPT_TIMEOUT_EMERGENCY_MIN = int(os.getenv("ACCEPT_TIMEOUT_EMERGENCY_MIN", "3"
 OVERDUE_REPEAT_MIN = int(os.getenv("OVERDUE_REPEAT_MIN", "30"))
 
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
+
+# Флаг демонстрационного режима (при False отключается выдача демо-аккаунтов)
+DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes")
+
+# Вне демо-режима сервер не запускается с секретом JWT из исходного кода (им можно подделать любой токен)
+if not DEMO_MODE and JWT_SECRET == _DEFAULT_JWT_SECRET:
+    raise RuntimeError("DEMO_MODE=false: задайте собственный JWT_SECRET в переменных окружения")

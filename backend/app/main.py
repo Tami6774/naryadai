@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .auth import decode_token
-from .config import BASE_DIR, CORS_ORIGINS, MEDIA_DIR
+from .config import BASE_DIR, CORS_ORIGINS, DEMO_MODE, MEDIA_DIR
 from .db import Base, engine
 from .realtime import manager
 from .routers import core, orders
@@ -30,10 +30,11 @@ async def lifespan(app: FastAPI):
         with SessionLocal() as db:
             if db.scalar(select(func.count(Employee.id))) == 0:
                 logging.getLogger("uvicorn").info("База данных пуста. Запуск генерации демонстрационных данных (92 дня)...")
-                from ..seed.generate import generate
+                # seed — пакет рядом с app/ (корень backend/ или /app в Docker), импорт абсолютный
+                from seed.generate import generate
                 generate(days=92, seed=42)
-    except Exception as exc:
-        logging.getLogger("uvicorn").warning("Авто-посев данных пропущен: %s", exc)
+    except Exception:
+        logging.getLogger("uvicorn").exception("Авто-посев данных пропущен")
 
     task = asyncio.create_task(deadline_loop())
     yield
@@ -50,7 +51,8 @@ app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "online": len(manager.online_user_ids)}
+    # demo_mode — клиент скрывает быстрый вход и подсказку ПИН, когда режим выключен
+    return {"status": "ok", "online": len(manager.online_user_ids), "demo_mode": DEMO_MODE}
 
 
 @app.websocket("/ws")
