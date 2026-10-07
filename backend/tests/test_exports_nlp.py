@@ -196,6 +196,40 @@ class TestExportsAndNLP(unittest.TestCase):
         self.assertIn("Не указано", html)
         self.assertIn("Не назначен", html)
 
+    def test_print_order_html_escapes_user_input(self):
+        """Тексты исполнителя/мастера не должны внедрять HTML/JS в печатную форму (stored XSS)."""
+        payload = '<script>alert(1)</script>'
+        attr_payload = '"><img src=x onerror=alert(2)>'
+        dummy = WorkOrder(
+            number=9999,
+            work_type=WorkType.unplanned,
+            description=payload,
+            comment=attr_payload,
+            work_done=payload,
+            close_comment=attr_payload,
+            section_id=1,
+            equipment_id=1,
+            master_id=1,
+            priority=Priority.normal,
+            deadline=None,
+            created_at=None,
+            events=[],
+            materials=[],
+        )
+        dummy.equipment = Equipment(name=payload, inv_no=attr_payload, section_id=1, type="насос")
+        dummy.section = Section(name=payload)
+        dummy.master = Employee(full_name=payload, specialty="Мастер", role=Role.master, login="x", pin_hash="x")
+        dummy.assignee = Employee(full_name=payload, specialty=payload, role=Role.worker, login="y", pin_hash="y")
+        dummy.fault_code = FaultCode(code=payload, category="М", name=attr_payload)
+        dummy.assessments = [AIAssessment(verdict=payload, score=10, explanation=payload,
+                                          master_score=20, master_comment=attr_payload)]
+
+        html = generate_order_print_html(dummy)
+        self.assertNotIn("<script>alert", html)
+        self.assertNotIn("<img src=x", html)
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html)
+        self.assertIn("&quot;&gt;&lt;img src=x onerror=alert(2)&gt;", html)
+
     def test_suggest_assignees_invalid_equipment(self):
         """Проверка устойчивости suggest_assignees при несуществующем ID оборудования."""
         from app.services.workers import suggest_assignees

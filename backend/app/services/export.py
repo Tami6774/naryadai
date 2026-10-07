@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import html
 import io
 from datetime import datetime
 from openpyxl import Workbook
@@ -406,45 +407,63 @@ def get_materials_report(db: Session, start: datetime, end: datetime) -> dict:
 # =====================================================================
 # 5. Печатная форма наряда (Print-Ready / PDF)
 # =====================================================================
+def _e(value) -> str:
+    """Экранирование значений из БД перед вставкой в HTML (защита от XSS)."""
+    return html.escape(str(value), quote=True)
+
+
 def generate_order_print_html(order: WorkOrder) -> str:
-    """Генерирует официальную форму наряда-допуска АО «Костанайские Минералы»."""
+    """Генерирует официальную форму наряда-допуска АО «Костанайские Минералы».
+
+    Все значения из БД (тексты исполнителя/мастера, справочники) экранируются через _e():
+    страница открывается с того же origin, что и SPA, где хранится JWT.
+    """
     events_html = "".join(
         f"<tr><td>{ev.created_at.strftime('%d.%m.%Y %H:%M:%S') if ev.created_at else '—'}</td>"
-        f"<td><strong>{ev.action}</strong></td>"
-        f"<td>{short_name(ev.actor.full_name) if ev.actor else 'ИИ / Система'}</td>"
-        f"<td>{ev.comment or ev.reason or '—'}</td></tr>"
+        f"<td><strong>{_e(ev.action)}</strong></td>"
+        f"<td>{_e(short_name(ev.actor.full_name)) if ev.actor else 'ИИ / Система'}</td>"
+        f"<td>{_e(ev.comment or ev.reason or '—')}</td></tr>"
         for ev in (order.events or [])
     )
 
     mats_html = "".join(
-        f"<tr><td>{m.material.name if m.material else f'Материал #{m.material_id}'}</td><td>{m.qty} {m.material.unit if m.material else 'ед.'}</td></tr>"
+        f"<tr><td>{_e(m.material.name) if m.material else f'Материал #{m.material_id}'}</td>"
+        f"<td>{_e(m.qty)} {_e(m.material.unit) if m.material else 'ед.'}</td></tr>"
         for m in (order.materials or [])
     ) or "<tr><td colspan='2' style='text-align:center; color:#64748b;'>Материалы не списывались</td></tr>"
 
-    eq_desc = f"{order.equipment.name} (Инв. № {order.equipment.inv_no})" if order.equipment else "Не указано (Инв. № —)"
-    sec_name = order.section.name if order.section else "Не указан"
+    eq_desc = (f"{_e(order.equipment.name)} (Инв. № {_e(order.equipment.inv_no)})" if order.equipment
+               else "Не указано (Инв. № —)")
+    sec_name = _e(order.section.name) if order.section else "Не указан"
     created_str = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else "—"
     deadline_str = order.deadline.strftime('%d.%m.%Y %H:%M') if order.deadline else "—"
-    master_name = order.master.full_name if order.master else "Мастер смены"
-    assignee_name = order.assignee.full_name if order.assignee else "Не назначен"
-    assignee_spec = order.assignee.specialty if order.assignee else "—"
+    master_name = _e(order.master.full_name) if order.master else "Мастер смены"
+    assignee_name = _e(order.assignee.full_name) if order.assignee else "Не назначен"
+    assignee_spec = _e(order.assignee.specialty) if order.assignee else "—"
+    priority_label = _e(PRIORITY_LABELS.get(order.priority, str(order.priority)))
+    description = _e(order.description or '—')
+    comment = _e(order.comment) if order.comment else ''
+    fault_code = _e(order.fault_code.code) if order.fault_code else '—'
+    fault_name = _e(order.fault_code.name) if order.fault_code else '—'
+    work_done = _e(order.work_done) if order.work_done else 'Работы не описаны'
+    close_comment = _e(order.close_comment) if order.close_comment else ''
 
     assessment_html = ""
     if order.assessment:
         a = order.assessment
         v_raw = a.verdict.value if hasattr(a.verdict, "value") else str(a.verdict)
-        verdict_trans = {
+        verdict_trans = _e({
             "accepted": "✅ Принято без замечаний",
             "accepted_with_remarks": "⚠️ Принято с замечаниями",
             "needs_rework": "❌ Требует доработки",
-        }.get(v_raw, v_raw)
+        }.get(v_raw, v_raw))
         assessment_html = f"""
         <div class="box ai-box">
             <h3>🤖 ИИ-ЗАКЛЮЧЕНИЕ ЦИФРОВОГО КОНТРОЛЁРА («НарядAI»)</h3>
-            <p><strong>Вердикт ИИ:</strong> {verdict_trans} | <strong>Балл:</strong> {a.score}/100 
-               {f'| <strong>Мастер скорректировал оценку:</strong> {a.master_score}/100' if a.master_score is not None else ''}</p>
-            <p><strong>Пояснение:</strong> {a.explanation or '—'}</p>
-            {f'<p><strong>Комментарий мастера:</strong> {a.master_comment}</p>' if a.master_comment else ''}
+            <p><strong>Вердикт ИИ:</strong> {verdict_trans} | <strong>Балл:</strong> {_e(a.score)}/100
+               {f'| <strong>Мастер скорректировал оценку:</strong> {_e(a.master_score)}/100' if a.master_score is not None else ''}</p>
+            <p><strong>Пояснение:</strong> {_e(a.explanation or '—')}</p>
+            {f'<p><strong>Комментарий мастера:</strong> {_e(a.master_comment)}</p>' if a.master_comment else ''}
         </div>
         """
 
@@ -527,7 +546,7 @@ def generate_order_print_html(order: WorkOrder) -> str:
         <div><strong>Оборудование:</strong> {eq_desc}</div>
         <div><strong>Участок:</strong> {sec_name}</div>
         <div><strong>Тип работ:</strong> {'Внеплановый (аварийный)' if order.work_type == 'unplanned' else 'Плановый регламентный'}</div>
-        <div><strong>Приоритет:</strong> <span class="badge {'badge-emergency' if order.priority == 'emergency' else 'badge-normal'}">{PRIORITY_LABELS.get(order.priority, str(order.priority))}</span></div>
+        <div><strong>Приоритет:</strong> <span class="badge {'badge-emergency' if order.priority == 'emergency' else 'badge-normal'}">{priority_label}</span></div>
     </div>
     <div class="box">
         <h3>СРОКИ И ОТВЕТСТВЕННЫЕ</h3>
@@ -540,15 +559,15 @@ def generate_order_print_html(order: WorkOrder) -> str:
 
 <div class="box" style="margin-bottom: 12px;">
     <h3>ОПИСАНИЕ НЕИСПРАВНОСТИ / ЗАДАНИЕ МАСТЕРА</h3>
-    <p style="margin: 4px 0;">{order.description or '—'}</p>
-    {f'<div style="font-size: 9pt; color: #64748b;">Комментарий: {order.comment}</div>' if order.comment else ''}
+    <p style="margin: 4px 0;">{description}</p>
+    {f'<div style="font-size: 9pt; color: #64748b;">Комментарий: {comment}</div>' if comment else ''}
 </div>
 
 <div class="box" style="margin-bottom: 12px;">
     <h3>ФАКТИЧЕСКИ ВЫПОЛНЕННЫЕ РАБОТЫ И МАТЕРИАЛЫ</h3>
-    <div><strong>Шифр неисправности:</strong> [{order.fault_code.code if order.fault_code else '—'}] {order.fault_code.name if order.fault_code else '—'}</div>
-    <div><strong>Выполненные операции:</strong> {order.work_done or 'Работы не описаны'}</div>
-    {f'<div><strong>Комментарий исполнителя:</strong> {order.close_comment}</div>' if order.close_comment else ''}
+    <div><strong>Шифр неисправности:</strong> [{fault_code}] {fault_name}</div>
+    <div><strong>Выполненные операции:</strong> {work_done}</div>
+    {f'<div><strong>Комментарий исполнителя:</strong> {close_comment}</div>' if close_comment else ''}
     
     <h4 style="margin: 8px 0 2px; font-size: 9.5pt;">Списанные материалы и запчасти:</h4>
     <table>
