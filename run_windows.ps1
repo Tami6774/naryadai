@@ -95,5 +95,13 @@ Write-Host ""
 Start-Process "http://localhost:8000"
 
 Push-Location (Join-Path $PSScriptRoot "backend")
-& (Join-Path $venvPath "Scripts\uvicorn.exe") app.main:app --host 0.0.0.0 --port 8000
+# Адрес, на котором слушает сервер.
+# 0.0.0.0 - доступен всем устройствам в вашей сети (нужно для телефона).
+# 127.0.0.1 - только этот компьютер, телефон подключиться не сможет.
+# Для показа в общей сети (хакатон, Wi-Fi) закомментируйте строку $ListenHost = "0.0.0.0"
+# и раскомментируйте строку $ListenHost = "127.0.0.1" ниже.
+$ListenHost = "0.0.0.0"
+# $ListenHost = "127.0.0.1"
+
+& (Join-Path $venvPath "Scripts\uvicorn.exe") app.main:app --host $ListenHost --port 8000
 Pop-Location
