@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../api';
 import { WorkOrder } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -9,8 +9,38 @@ import {
   Clock, AlertTriangle, Sparkles, Award, ChevronRight, ShieldAlert 
 } from 'lucide-react';
 
+// Статусы, при переходе в которые у исполнителя может измениться рейтинг
+const RATING_STATUSES = new Set(['ai_review', 'closed', 'rework', 'done']);
+const RATING_NOTIFICATIONS = new Set(['ai_result', 'closed', 'rework', 'ai_rework']);
+
+/** Какие данные исполнителя устарели после WebSocket-события. */
+export function workerEventRelevance(
+  event: any, userId: number, myOrders: Array<{ id: number }>
+): { orders: boolean; rating: boolean } {
+  const isMine = (orderId?: number) => orderId !== undefined && myOrders.some(o => o.id === orderId);
+  switch (event?.type) {
+    case 'reconnected':
+      return { orders: true, rating: true };
+    case 'notification':  // отправляется только адресату
+      return { orders: true, rating: RATING_NOTIFICATIONS.has(event.notification?.kind) };
+    case 'order_updated': {
+      const o = event.order;
+      const assignedToMe = o?.assignee?.id === userId;
+      const relevant = assignedToMe || isMine(o?.id);  // в т.ч. наряд переназначили с меня
+      return { orders: relevant, rating: relevant && assignedToMe && RATING_STATUSES.has(o?.status) };
+    }
+    case 'order_photo':
+      return { orders: isMine(event.order_id), rating: false };
+    case 'worker_updated':
+      return { orders: event.worker_id === userId, rating: false };
+    default:
+      return { orders: true, rating: false };  // неизвестное событие — обновляем список на всякий случай
+  }
+}
+
 export const WorkerView: React.FC = () => {
-  const { user, lastEvent, offlineCount, syncOfflineNow } = useAuth();
+  const { user, lastEvent, offlineCount, offlineQueue, syncOfflineNow, retryOffline, discardOffline } = useAuth();
+  const problemActions = offlineQueue.filter(a => a.status === 'conflict' || a.status === 'failed');
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [ratingData, setRatingData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -25,31 +55,45 @@ export const WorkerView: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
 
-  const fetchWorkerData = useCallback(async () => {
-    if (!user) return;
+  const userId = user?.id;
+  const ordersRef = useRef<WorkOrder[]>([]);
+  ordersRef.current = orders;
+  // Рейтинг — тяжёлый расчёт на сервере (30 дней нарядов): запрашиваем только когда он мог измениться
+  const ratingDirtyRef = useRef(false);
+
+  const fetchWorkerData = useCallback(async (withRating: boolean = true) => {
+    if (!userId) return;
     try {
       const [ordList, rate] = await Promise.all([
-        api.getOrders({ assignee_id: user.id }),
-        api.getRating(),
+        api.getOrders({ assignee_id: userId }),
+        withRating ? api.getRating() : Promise.resolve(undefined),
       ]);
       setOrders(ordList);
-      setRatingData(rate);
+      if (rate !== undefined) setRatingData(rate);
     } catch (err) {
       console.error('Error fetching worker data', err);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     fetchWorkerData();
   }, [fetchWorkerData]);
 
+  // Широковещательные события приходят всем клиентам — реагируем только на касающиеся этого исполнителя
   useEffect(() => {
-    if (lastEvent) {
-      fetchWorkerData();
-    }
-  }, [lastEvent, fetchWorkerData]);
+    if (!lastEvent || !userId) return;
+    const relevance = workerEventRelevance(lastEvent, userId, ordersRef.current);
+    if (!relevance.orders) return;
+    if (relevance.rating) ratingDirtyRef.current = true;
+    const timer = setTimeout(() => {
+      const withRating = ratingDirtyRef.current;
+      ratingDirtyRef.current = false;
+      fetchWorkerData(withRating);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [lastEvent, userId, fetchWorkerData]);
 
   const handleAction = async (orderId: number, action: string, reason?: string) => {
     setActionLoading(true);
@@ -61,7 +105,9 @@ export const WorkerView: React.FC = () => {
       setReasonInput('');
       if (res?.__offline) {
         setOfflineNotice('Действие сохранено офлайн и будет передано при восстановлении связи');
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: res.status } : o));
+        if (res.status) {
+          setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: res.status } : o));
+        }
       } else {
         await fetchWorkerData();
       }
@@ -164,6 +210,41 @@ export const WorkerView: React.FC = () => {
               </button>
             </div>
           )}
+
+          {/* Действия, которые не удалось применить при синхронизации: решает исполнитель */}
+          {problemActions.map(a => (
+            <div key={a.id} className="bg-red-950/60 border border-red-700 p-3 rounded-2xl shadow text-xs space-y-2">
+              <div className="text-red-200">
+                <span className="font-bold">
+                  {a.status === 'conflict' ? 'Конфликт' : 'Ошибка'} синхронизации
+                  {a.orderNumber ? ` · наряд №${a.orderNumber}` : ''}:
+                </span>{' '}
+                действие «{a.action}» от {new Date(a.createdAt).toLocaleString('ru-RU')}
+                {a.photos?.length ? ` (+${a.photos.length} фото)` : ''}.
+                {a.errorMessage && <div className="text-red-300 mt-1">{a.errorMessage}</div>}
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => retryOffline(a.id)}
+                  className="min-h-[48px] flex-1 px-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition"
+                >
+                  Повторить
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Удалить сохранённое действие? Данные (включая фото) будут потеряны.')) {
+                      discardOffline(a.id);
+                    }
+                  }}
+                  className="min-h-[48px] flex-1 px-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition"
+                >
+                  Удалить
+                </button>
+              </div>
+            </div>
+          ))}
 
           {/* Главный блок: Текущий активный наряд */}
           {currentOrder ? (
@@ -531,9 +612,15 @@ export const WorkerView: React.FC = () => {
         <CloseOrderModal
           order={closingOrder}
           onClose={() => setClosingOrder(null)}
-          onSuccess={() => {
+          onSuccess={(offline) => {
+            const id = closingOrder.id;
             setClosingOrder(null);
-            fetchWorkerData();
+            if (offline) {
+              setOfflineNotice('Закрытие наряда и фото сохранены офлайн и будут переданы при восстановлении связи');
+              setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'done' } : o));
+            } else {
+              fetchWorkerData();
+            }
           }}
         />
       )}

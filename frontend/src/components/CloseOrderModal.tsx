@@ -3,11 +3,12 @@ import { api } from '../api';
 import { WorkOrder, FaultCode, Material } from '../types';
 import { X, Camera, Plus, Trash2, CheckCircle2, AlertTriangle, Sparkles, Mic, MicOff } from 'lucide-react';
 import { useVoiceInput } from '../utils/useVoice';
+import { hasPendingForOrder, isNetworkError, queueOfflineAction } from '../utils/offlineQueue';
 
 interface CloseOrderModalProps {
   order: WorkOrder;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (offline?: boolean) => void;
 }
 
 export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose, onSuccess }) => {
@@ -103,21 +104,43 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
     setSubmitting(true);
     setError(null);
 
+    const closing = {
+      work_done: workDone,
+      fault_code_id: faultCodeId ? Number(faultCodeId) : null,
+      materials: materials.map(m => ({ material_id: Number(m.material_id), qty: Number(m.qty) })),
+      comment,
+    };
+
+    // Нет связи: фото (в IndexedDB) и закрытие уходят в офлайн-очередь одной записью
+    const queueOffline = async () => {
+      await queueOfflineAction(
+        { orderId: order.id, orderNumber: order.number, action: 'complete', closing },
+        photoAfter ? [{ kind: 'after', file: photoAfter }] : []
+      );
+      onSuccess(true);
+    };
+
     try {
-      // 1. Сначала загружаем фото «после», если приложено
-      if (photoAfter) {
-        await api.uploadPhoto(order.id, 'after', photoAfter);
+      // По наряду уже есть неотправленные действия — закрытие встаёт за ними
+      if (hasPendingForOrder(order.id)) {
+        await queueOffline();
+        return;
       }
 
-      // 2. Отправляем действие complete с формой закрытия
-      await api.applyAction(order.id, 'complete', undefined, undefined, {
-        work_done: workDone,
-        fault_code_id: faultCodeId ? Number(faultCodeId) : null,
-        materials: materials.map(m => ({ material_id: Number(m.material_id), qty: Number(m.qty) })),
-        comment,
-      });
+      // 1. Сначала загружаем фото «после», если приложено
+      if (photoAfter) {
+        try {
+          await api.uploadPhoto(order.id, 'after', photoAfter);
+        } catch (err) {
+          if (!isNetworkError(err)) throw err;
+          await queueOffline();
+          return;
+        }
+      }
 
-      onSuccess();
+      // 2. Отправляем действие complete с формой закрытия (при обрыве связи api сам поставит его в очередь)
+      const res: any = await api.applyAction(order.id, 'complete', undefined, undefined, closing);
+      onSuccess(Boolean(res?.__offline));
     } catch (err: any) {
       setError(err.message || 'Ошибка закрытия наряда');
       setSubmitting(false);

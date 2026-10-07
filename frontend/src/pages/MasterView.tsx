@@ -49,11 +49,13 @@ export const MasterView: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  // Реакция на WebSocket-события (обновление без перезагрузки страницы!)
+  // Реакция на WebSocket-события с debounce для предотвращения шторма повторных запросов
   useEffect(() => {
-    if (lastEvent) {
+    if (!lastEvent) return;
+    const timer = setTimeout(() => {
       fetchData();
-    }
+    }, 300);
+    return () => clearTimeout(timer);
   }, [lastEvent, fetchData]);
 
   const hasActiveFilters = 

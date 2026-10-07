@@ -4,7 +4,7 @@ import { Shield, Wrench, BarChart2, Key, AlertTriangle, ArrowRight, Settings } f
 import { getApiBaseUrl, setApiHost } from '../api';
 
 export const LoginPage: React.FC = () => {
-  const { login, quickSwitch } = useAuth();
+  const { login, quickSwitch, demoMode } = useAuth();
   const [loginInput, setLoginInput] = useState('');
   const [pinInput, setPinInput] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +75,7 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">ПИН-код (демо: 1234)</label>
+              <label className="block text-slate-400 font-semibold mb-1">ПИН-код{demoMode ? ' (демо: 1234)' : ''}</label>
               <input
                 type="password"
                 maxLength={6}
@@ -96,7 +96,8 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Быстрый вход для Demo Day */}
+          {/* Быстрый вход для Demo Day (скрыт, если сервер запущен с DEMO_MODE=false) */}
+          {demoMode && (
           <div className="pt-4 border-t border-slate-700/60 space-y-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
               Быстрый вход для защиты на Demo Day (1 клик):
@@ -120,6 +121,7 @@ export const LoginPage: React.FC = () => {
               ))}
             </div>
           </div>
+          )}
 
           {/* Скачать APK */}
           <div className="pt-3 border-t border-slate-700/60 text-center">

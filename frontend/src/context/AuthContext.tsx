@@ -2,7 +2,12 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { User, NotificationItem } from '../types';
 import { api, getToken, setToken, getWsBaseUrl, checkServerHealth } from '../api';
 import { Lang, translations } from '../utils/i18n';
-import { getOfflineQueue, subscribeOfflineQueue, syncOfflineQueue, OfflineAction } from '../utils/offlineQueue';
+import {
+  discardOfflineAction, getOfflineQueue, retryOfflineAction, subscribeOfflineQueue, syncOfflineQueue,
+  OfflineAction, SyncResult,
+} from '../utils/offlineQueue';
+
+const OFFLINE_RETRY_MS = 30000;
 
 interface AuthContextType {
   user: User | null;
@@ -23,11 +28,14 @@ interface AuthContextType {
   lastEvent: any;
   offlineCount: number;
   offlineQueue: OfflineAction[];
-  syncOfflineNow: () => Promise<{ synced: number; failed: number }>;
+  syncOfflineNow: () => Promise<SyncResult>;
+  retryOffline: (id: string) => void;
+  discardOffline: (id: string) => Promise<void>;
   serverConnected: boolean;
   recheckServer: () => Promise<boolean>;
   forceOffline: boolean;
   setForceOffline: (val: boolean) => void;
+  demoMode: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,6 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [serverConnected, setServerConnected] = useState<boolean>(true);
   const [forceOffline, setForceOffline] = useState<boolean>(false);
+  // Демо-режим сервера (быстрый вход, подсказка ПИН). Старый сервер без флага — считаем включённым
+  const [demoMode, setDemoMode] = useState<boolean>(true);
   const wsRef = useRef<WebSocket | null>(null);
 
   const setLang = useCallback((newLang: Lang) => {
@@ -172,6 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const recheckServer = useCallback(async (): Promise<boolean> => {
     const res = await checkServerHealth(3500);
     setServerConnected(res.ok);
+    if (res.demoMode !== undefined) setDemoMode(res.demoMode);
     if (res.ok) {
       setForceOffline(false);
       await refreshUser();
@@ -182,25 +193,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     checkServerHealth(3500).then((res) => {
       setServerConnected(res.ok);
+      if (res.demoMode !== undefined) setDemoMode(res.demoMode);
     });
   }, []);
 
   const syncOfflineNow = useCallback(async () => {
-    const res = await syncOfflineQueue(api.applyActionDirect);
+    const res = await syncOfflineQueue({
+      applyAction: api.applyActionDirect,
+      uploadPhoto: api.uploadPhoto,
+      getOrder: api.getOrder,
+    });
     if (res.synced > 0) {
       await refreshUser();
     }
     return res;
   }, [refreshUser]);
 
-  // Фоновая синхронизация при возвращении сети online
+  const pendingCount = offlineQueue.filter(x => x.status === 'pending').length;
+
+  // Фоновая синхронизация при возвращении сети online и при появлении новых действий
   useEffect(() => {
-    if (isOnline && offlineQueue.length > 0) {
+    if (isOnline && pendingCount > 0) {
       syncOfflineNow();
     }
-  }, [isOnline, offlineQueue.length, syncOfflineNow]);
+  }, [isOnline, pendingCount, syncOfflineNow]);
 
-  // WebSocket Connection
+  // Повтор по таймеру: navigator.onLine остаётся true, когда Wi-Fi есть, а сервер недоступен
+  useEffect(() => {
+    if (pendingCount === 0) return;
+    const timer = setInterval(() => {
+      syncOfflineNow();
+    }, OFFLINE_RETRY_MS);
+    return () => clearInterval(timer);
+  }, [pendingCount, syncOfflineNow]);
+
+  const retryOffline = useCallback((id: string) => {
+    retryOfflineAction(id);
+  }, []);
+
+  const discardOffline = useCallback(async (id: string) => {
+    await discardOfflineAction(id);
+  }, []);
+
+  const playAlertSoundRef = useRef(playAlertSound);
+  useEffect(() => {
+    playAlertSoundRef.current = playAlertSound;
+  }, [playAlertSound]);
+
+  // WebSocket Connection с автоматическим переподключением (экспоненциальный backoff)
   useEffect(() => {
     const token = getToken();
     if (!token || !user) {
@@ -211,35 +251,94 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const wsBase = getWsBaseUrl();
-    const wsUrl = `${wsBase}/ws?token=${token}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    let isCancelled = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let pingInterval: ReturnType<typeof setInterval> | null = null;
+    let delay = 1000;
+    const maxDelay = 30000;
+    let hasConnected = false;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        setLastEvent(data);
-        if (data.type === 'notification') {
-          playAlertSound(data.notification?.urgent);
-          setNotifications(prev => [data.notification, ...prev]);
+    const connect = () => {
+      if (isCancelled) return;
+      const currentToken = getToken();
+      if (!currentToken) return;
+
+      const wsBase = getWsBaseUrl();
+      const wsUrl = `${wsBase}/ws?token=${currentToken}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        if (isCancelled) {
+          ws.close();
+          return;
         }
-      } catch (err) {
-        console.error('WS parse error', err);
-      }
+        delay = 1000; // Сброс задержки при успешном подключении
+        loadNotifications();
+        // После переподключения — синтетическое событие: экраны перезагрузят пропущенные изменения
+        if (hasConnected) setLastEvent({ type: 'reconnected' });
+        hasConnected = true;
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setLastEvent(data);
+          if (data.type === 'notification') {
+            playAlertSoundRef.current(data.notification?.urgent);
+            setNotifications(prev => [data.notification, ...prev]);
+          }
+        } catch (err) {
+          console.error('WS parse error', err);
+        }
+      };
+
+      ws.onclose = (event) => {
+        if (pingInterval) {
+          clearInterval(pingInterval);
+          pingInterval = null;
+        }
+        if (isCancelled) return;
+
+        // 4401 — сервер отклонил токен (истёк/недействителен): переподключение бессмысленно
+        if (event.code === 4401) {
+          setToken(null);
+          setUser(null);
+          return;
+        }
+
+        // Повторное подключение с экспоненциальным backoff (1s -> 2s -> 4s ... макс 30s)
+        reconnectTimer = setTimeout(() => {
+          delay = Math.min(delay * 2, maxDelay);
+          connect();
+        }, delay);
+      };
+
+      ws.onerror = () => {
+        // ws.onclose вызовется автоматически и обработает переподключение
+      };
+
+      if (pingInterval) clearInterval(pingInterval);
+      pingInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send('ping');
+        }
+      }, 15000);
     };
 
-    const pingInterval = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send('ping');
-      }
-    }, 15000);
+    connect();
 
     return () => {
-      clearInterval(pingInterval);
-      ws.close();
+      isCancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (pingInterval) clearInterval(pingInterval);
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
-  }, [user, playAlertSound]);
+    // Зависимость от id, а не объекта: refreshUser() не должен рвать рабочее соединение
+  }, [user?.id, loadNotifications]);
 
   const login = async (loginName: string, pin: string) => {
     try {
@@ -288,10 +387,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       offlineCount: offlineQueue.length,
       offlineQueue,
       syncOfflineNow,
+      retryOffline,
+      discardOffline,
       serverConnected,
       recheckServer,
       forceOffline,
       setForceOffline,
+      demoMode,
     }}>
       {children}
     </AuthContext.Provider>

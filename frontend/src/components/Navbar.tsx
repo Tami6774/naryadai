@@ -12,7 +12,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => {
   const { 
-    user, quickSwitch, logout, notifications, unreadCount,
+    user, quickSwitch, logout, notifications, unreadCount, demoMode,
     soundEnabled, toggleSound, playAlertSound, isOnline, lang, setLang, t,
     offlineCount, syncOfflineNow
   } = useAuth();
@@ -138,7 +138,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                 <span>{lang.toUpperCase()}</span>
               </button>
 
-              {/* Кнопка быстрого переключения роли для Демо */}
+              {/* Кнопка быстрого переключения роли для Демо (только при DEMO_MODE) */}
+              {demoMode && (
               <div className="relative">
                 <button
                   onClick={() => setShowSwitchMenu(!showSwitchMenu)}
@@ -173,6 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                   </div>
                 )}
               </div>
+              )}
 
               {/* Колокольчик уведомлений */}
               <div className="relative">

@@ -1,16 +1,19 @@
+import { Capacitor } from '@capacitor/core';
 import { WorkOrder, User, NotificationItem, AssistantResponse, Priority } from './types';
-import { saveOfflineAction } from './utils/offlineQueue';
+import { hasPendingForOrder, isNetworkError, OPTIMISTIC_STATUS, saveOfflineAction } from './utils/offlineQueue';
+
+// Адрес сервера по умолчанию для APK (пока пользователь не указал свой на экране входа)
+const NATIVE_DEFAULT_API = 'http://192.168.3.81:8000';
 
 export function getApiBaseUrl(): string {
   const host = localStorage.getItem('naryad_api_host');
   if (host && host.trim()) {
     return host.trim().replace(/\/+$/, '');
   }
-  // В мобильном окружении Capacitor по умолчанию обращаемся к локальному IP ПК
-  if (typeof window !== 'undefined') {
-    if (window.location.protocol === 'capacitor:' || (window.location.hostname === 'localhost' && !['5173', '8000'].includes(window.location.port))) {
-      return 'http://192.168.3.81:8000';
-    }
+  // В APK (Capacitor) страница открыта с localhost самого телефона — нужен адрес ПК с сервером.
+  // В браузере (uvicorn :8000, vite dev :3000 / preview с proxy) — тот же origin.
+  if (Capacitor.isNativePlatform()) {
+    return NATIVE_DEFAULT_API;
   }
   return '';
 }
@@ -23,7 +26,7 @@ export function setApiHost(host: string | null): void {
   }
 }
 
-export async function checkServerHealth(timeoutMs: number = 3500): Promise<{ ok: boolean; pingMs?: number; error?: string }> {
+export async function checkServerHealth(timeoutMs: number = 3500): Promise<{ ok: boolean; pingMs?: number; error?: string; demoMode?: boolean }> {
   const base = getApiBaseUrl();
   const url = `${base}/api/health`;
   const start = Date.now();
@@ -37,7 +40,15 @@ export async function checkServerHealth(timeoutMs: number = 3500): Promise<{ ok:
     });
     clearTimeout(timer);
     if (res.ok) {
-      return { ok: true, pingMs: Date.now() - start };
+      const pingMs = Date.now() - start;
+      let demoMode: boolean | undefined;
+      try {
+        const data = await res.json();
+        if (typeof data?.demo_mode === 'boolean') demoMode = data.demo_mode;
+      } catch {
+        // старый сервер без JSON-поля — оставляем режим по умолчанию
+      }
+      return { ok: true, pingMs, demoMode };
     }
     return { ok: false, error: `Сервер вернул статус ${res.status}` };
   } catch (err: any) {
@@ -77,6 +88,27 @@ export function setToken(token: string | null) {
   }
 }
 
+/** Ошибка ответа сервера: сообщение из `detail` + HTTP-статус (для офлайн-очереди). */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+async function errorFromResponse(res: Response, fallback: string): Promise<ApiError> {
+  let errMessage = fallback;
+  try {
+    const data = await res.json();
+    if (data.detail) errMessage = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+  } catch {
+    // ignore
+  }
+  return new ApiError(errMessage, res.status);
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -94,14 +126,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   });
 
   if (!res.ok) {
-    let errMessage = `Ошибка запроса (${res.status})`;
-    try {
-      const data = await res.json();
-      if (data.detail) errMessage = data.detail;
-    } catch {
-      // ignore
-    }
-    throw new Error(errMessage);
+    throw await errorFromResponse(res, `Ошибка запроса (${res.status})`);
   }
 
   return res.json();
@@ -161,6 +186,12 @@ export const api = {
 
   // Action с поддержкой офлайн-режима
   applyAction: async (id: number, action: string, reason?: string, comment?: string, closing?: any) => {
+    const queueOffline = () => {
+      saveOfflineAction({ orderId: id, action, reason, comment, closing });
+      return { id, status: OPTIMISTIC_STATUS[action], __offline: true } as any;
+    };
+    // По наряду уже есть неотправленные действия — встаём за ними, иначе сервер получит их не по порядку
+    if (hasPendingForOrder(id)) return queueOffline();
     try {
       return await request<WorkOrder>(`/orders/${id}/action`, {
         method: 'POST',
@@ -168,20 +199,7 @@ export const api = {
       });
     } catch (err: any) {
       // При отсутствии сети или сетевом сбое (Failed to fetch) сохраняем в офлайн-очередь
-      if (!navigator.onLine || err?.name === 'TypeError' || err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError')) {
-        saveOfflineAction({
-          orderId: id,
-          action,
-          reason,
-          comment,
-          closing,
-        });
-        return {
-          id,
-          status: action === 'complete' ? 'done' : action === 'accept' ? 'accepted' : action === 'start' ? 'in_progress' : action === 'pause' ? 'paused' : action === 'queue' ? 'queued' : 'issued',
-          __offline: true,
-        } as any;
-      }
+      if (isNetworkError(err)) return queueOffline();
       throw err;
     }
   },
@@ -198,7 +216,7 @@ export const api = {
       },
       body: formData,
     });
-    if (!res.ok) throw new Error('Ошибка загрузки фото');
+    if (!res.ok) throw await errorFromResponse(res, 'Ошибка загрузки фото');
     return res.json();
   },
   setMasterScore: (id: number, score: number, comment?: string) =>
