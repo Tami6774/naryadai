@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Для PostgreSQL: DATABASE_URL=postgresql+psycopg://naryad:naryad@localhost:5432/naryad
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'naryad.db'}")
 
-_DEFAULT_JWT_SECRET = "naryad-ai-kostanai-minerals-production-secret-key-32b"
+_DEFAULT_JWT_SECRET = "demo-only-insecure-key-change-me-32bytes"
 JWT_SECRET = os.getenv("JWT_SECRET", _DEFAULT_JWT_SECRET)
 JWT_TTL_HOURS = int(os.getenv("JWT_TTL_HOURS", "24"))
 

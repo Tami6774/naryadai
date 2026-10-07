@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg://naryad:naryad_secret_password@db:5432/naryad
-      JWT_SECRET: production-secret-key-kosta-minerals
+      JWT_SECRET: ${JWT_SECRET:-demo-only-insecure-key-change-me-32bytes}
       DEADLINE_CHECK_INTERVAL_SEC: 15
       # Необязательно: проверка языковой/мультимодальной моделью (берётся из окружения хоста)
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
