@@ -34,10 +34,13 @@ DEFAULT_HOURS = {Priority.emergency: 2, Priority.high: 4, Priority.normal: 8, Pr
 MAX_PHOTOS = 5
 
 
-def _load(db: Session, order_id: int) -> WorkOrder:
-    o = db.scalar(select(WorkOrder).where(WorkOrder.id == order_id).options(
+def _load(db: Session, order_id: int, lock: bool = False) -> WorkOrder:
+    stmt = select(WorkOrder).where(WorkOrder.id == order_id).options(
         selectinload(WorkOrder.events), selectinload(WorkOrder.photos),
-        selectinload(WorkOrder.materials), selectinload(WorkOrder.assessments)))
+        selectinload(WorkOrder.materials), selectinload(WorkOrder.assessments))
+    if lock:
+        stmt = stmt.with_for_update()
+    o = db.scalar(stmt)
     if not o:
         raise HTTPException(404, "Наряд не найден")
     return o
@@ -144,7 +147,7 @@ def print_order(
 @router.post("/{order_id}/action")
 def action(order_id: int, data: ActionIn, db: Session = Depends(get_db),
            user: Employee = Depends(current_user)):
-    o = _load(db, order_id)
+    o = _load(db, order_id, lock=True)
     svc.apply_action(db, o, user, data.action, reason=data.reason, comment=data.comment,
                      closing=data.closing)
     db.commit()
@@ -154,7 +157,7 @@ def action(order_id: int, data: ActionIn, db: Session = Depends(get_db),
 @router.post("/{order_id}/reassign")
 def reassign(order_id: int, data: ReassignIn, db: Session = Depends(get_db),
              user: Employee = Depends(master_only)):
-    svc.reassign(db, _load(db, order_id), user, data.assignee_id, data.comment)
+    svc.reassign(db, _load(db, order_id, lock=True), user, data.assignee_id, data.comment)
     db.commit()
     return order_full(_load(db, order_id))
 
@@ -162,7 +165,7 @@ def reassign(order_id: int, data: ReassignIn, db: Session = Depends(get_db),
 @router.post("/{order_id}/priority")
 def priority(order_id: int, data: PriorityIn, db: Session = Depends(get_db),
              user: Employee = Depends(master_only)):
-    svc.change_priority(db, _load(db, order_id), user, data.priority, data.deadline)
+    svc.change_priority(db, _load(db, order_id, lock=True), user, data.priority, data.deadline)
     db.commit()
     return order_full(_load(db, order_id))
 
@@ -170,7 +173,7 @@ def priority(order_id: int, data: PriorityIn, db: Session = Depends(get_db),
 @router.post("/{order_id}/master-score")
 def master_score(order_id: int, data: MasterScoreIn, db: Session = Depends(get_db),
                  user: Employee = Depends(master_only)):
-    svc.set_master_score(db, _load(db, order_id), user, data.score, data.comment)
+    svc.set_master_score(db, _load(db, order_id, lock=True), user, data.score, data.comment)
     db.commit()
     return order_full(_load(db, order_id))
 
