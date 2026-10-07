@@ -2,9 +2,13 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+ENV TZ=Asia/Qostanay
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
+    tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

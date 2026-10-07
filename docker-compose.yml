@@ -9,6 +9,7 @@ services:
       POSTGRES_DB: naryad
       POSTGRES_USER: naryad
       POSTGRES_PASSWORD: naryad_secret_password
+      TZ: Asia/Qostanay
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -24,6 +25,7 @@ services:
       DATABASE_URL: postgresql+psycopg://naryad:naryad_secret_password@db:5432/naryad
       JWT_SECRET: production-secret-key-kosta-minerals
       DEADLINE_CHECK_INTERVAL_SEC: 15
+      TZ: Asia/Qostanay
     volumes:
       - media_data:/app/media
     ports:
