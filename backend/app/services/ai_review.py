@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from ..models import AIAssessment, MaterialNorm, Photo, Verdict, WorkOrder, WorkType
 from ..serializers import work_minutes
+from . import ai_llm
 from .photos import hamming
 
 CRITICAL, REMARK, OK = "critical", "remark", "ok"
@@ -69,16 +71,27 @@ def check_completeness(o: WorkOrder, r: ReviewResult) -> None:
 from .ai_nlp import evaluate_work_relevance
 
 
-def check_relevance(o: WorkOrder, r: ReviewResult) -> None:
-    """Интеллектуальная проверка соответствия работ проблеме и шифру (автономный ИИ)."""
+def check_relevance(o: WorkOrder, r: ReviewResult, llm: dict | None = None) -> None:
+    """Соответствие работ проблеме и шифру: языковая модель (если включена) или онтология."""
     if not o.work_done:
         return
     fault_name = o.fault_code.name if o.fault_code else ""
     ok, message, penalty = evaluate_work_relevance(o.description, o.work_done, fault_name)
-    if ok:
-        r.add("relevance", OK, message)
-    else:
-        r.add("relevance", REMARK, message, penalty)
+    if llm is None or len(o.work_done.strip()) < 15:   # пустые и слишком краткие отчёты — правила
+        r.add("relevance", OK if ok else REMARK, message, 0 if ok else penalty)
+        return
+    explanation = llm.get("explanation", "").strip()
+    if llm.get("relevant"):
+        r.add("relevance", OK, f"Работы соответствуют проблеме и шифру. {explanation}")
+        return
+    missing = [m for m in llm.get("missing", []) if m][:3]
+    text = f"Работы не устраняют заявленную проблему: {explanation}"
+    if missing:
+        text += f" Не хватает: {'; '.join(missing)}."
+    confident = llm.get("confidence", 0) >= 0.6
+    r.add("relevance", REMARK, text, 10 if confident else 5)
+    if not confident:
+        r.needs_master_check = True
 
 
 def check_materials(db: Session, o: WorkOrder, r: ReviewResult) -> None:
@@ -125,8 +138,9 @@ def check_time(o: WorkOrder, r: ReviewResult) -> None:
         r.add("time", OK, f"Время {_fmt_minutes(minutes)} в пределах норматива {_fmt_minutes(norm)}")
 
 
-def check_photos(db: Session, o: WorkOrder, r: ReviewResult) -> None:
-    """Базовая проверка фото (6.3 п.1): свежее, не повтор старого, отличается от «до»."""
+def check_photos(db: Session, o: WorkOrder, r: ReviewResult, llm: dict | None = None) -> None:
+    """Проверка фото (6.3): свежее, не повтор старого, отличается от «до» (правила) +
+    сравнение «до/после» и оценка видимого качества мультимодальной моделью (если включена)."""
     after = [p for p in o.photos if p.kind == "after"]
     before = [p for p in o.photos if p.kind == "before"]
     if not after:
@@ -171,6 +185,34 @@ def check_photos(db: Session, o: WorkOrder, r: ReviewResult) -> None:
     else:
         r.photo_score = 3
 
+    if llm is not None:
+        _apply_photo_llm(r, llm, rules_flagged_fraud=has_dup or has_early, has_before=bool(before))
+
+
+def _apply_photo_llm(r: ReviewResult, llm: dict, rules_flagged_fraud: bool, has_before: bool) -> None:
+    """Вердикт мультимодальной модели поверх правил. Повтор/подлог фото по правилам главнее."""
+    explanation = llm.get("explanation", "").strip()
+    confident = llm.get("confidence", 0) >= 0.6
+    flagged = False
+    if has_before and not llm.get("same_equipment", True):
+        r.add("photo", REMARK, f"На фото «после», по оценке ИИ, другое оборудование. {explanation}", 15)
+        r.needs_master_check = flagged = True
+    if llm.get("problem_fixed") == "no":
+        r.add("photo", REMARK, f"По фото проблема не устранена. {explanation}", 15)
+        flagged = True
+    elif llm.get("problem_fixed") == "unclear":
+        r.needs_master_check = True
+    issues = [q for q in llm.get("quality_issues", []) if q][:3]
+    if issues:
+        r.add("photo", REMARK, "Видимые недочёты по фото: " + "; ".join(issues), 5)
+        flagged = True
+    if not confident:
+        r.needs_master_check = True   # 6.3 п.4: при низкой уверенности — проверка мастером
+    if not flagged:
+        r.add("photo", OK, f"Сравнение фото ИИ: {explanation}" if explanation else "Сравнение фото ИИ: замечаний нет")
+    if not rules_flagged_fraud:
+        r.photo_score = llm["score"]
+
 
 def build_reports(o: WorkOrder, r: ReviewResult) -> tuple[Verdict, int, str, str]:
     score = max(0, 100 - sum(c.penalty for c in r.checks))
@@ -206,19 +248,40 @@ def build_reports(o: WorkOrder, r: ReviewResult) -> tuple[Verdict, int, str, str
     return verdict, score, explanation, worker_report
 
 
+def _run_llm_checks(o: WorkOrder) -> tuple[dict | None, dict | None]:
+    """Запросы к модели параллельно. В потоки уходят только строки — сессия БД не потокобезопасна."""
+    if not ai_llm.enabled():
+        return None, None
+    description = o.description or ""
+    work_done = (o.work_done or "").strip()
+    fault_name = o.fault_code.name if o.fault_code else ""
+    before = [p.file_path for p in o.photos if p.kind == "before"]
+    after = [p.file_path for p in o.photos if p.kind == "after"]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        rel = pool.submit(ai_llm.check_relevance, description, work_done, fault_name) if len(work_done) >= 15 else None
+        photo = pool.submit(ai_llm.compare_photos, description, before, after) if after else None
+        return (rel.result() if rel else None), (photo.result() if photo else None)
+
+
 def review_order(db: Session, o: WorkOrder) -> AIAssessment:
     r = ReviewResult()
+    llm_relevance, llm_photos = _run_llm_checks(o)
     check_completeness(o, r)
-    check_relevance(o, r)
+    check_relevance(o, r, llm_relevance)
     check_materials(db, o, r)
     check_time(o, r)
-    check_photos(db, o, r)
+    check_photos(db, o, r, llm_photos)
     verdict, score, explanation, worker_report = build_reports(o, r)
+    used_llm = llm_relevance is not None or llm_photos is not None
+    details = {"checks": [c.__dict__ for c in r.checks],
+               "engine": f"rules-v1+{ai_llm.MODEL}" if used_llm else "rules-v1"}
+    if used_llm:
+        details["llm"] = {"relevance": llm_relevance, "photos": llm_photos}
     a = AIAssessment(
         order_id=o.id, verdict=verdict, score=score, photo_score=r.photo_score,
         explanation=explanation, worker_report=worker_report,
         needs_master_check=r.needs_master_check,
-        details={"checks": [c.__dict__ for c in r.checks], "engine": "rules-v1"},
+        details=details,
     )
     db.add(a)
     db.flush()
