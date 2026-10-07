@@ -1,9 +1,22 @@
 """Входные схемы API (pydantic)."""
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
 
 from .models import Priority, WorkType
+
+
+def _to_local_naive(value: datetime) -> datetime:
+    """Клиенты присылают время с поясом (toISOString → UTC «Z»), а БД и все расчёты сроков
+    работают в локальном времени сервера без пояса. Без приведения SQLite отбрасывал пояс,
+    и срок «через 2 часа» на ПК с UTC+5 сразу считался просроченным на 3 часа."""
+    if value.tzinfo is not None:
+        return value.astimezone().replace(tzinfo=None)
+    return value
+
+
+LocalDatetime = Annotated[datetime, AfterValidator(_to_local_naive)]
 
 
 class LoginIn(BaseModel):
@@ -18,7 +31,7 @@ class OrderCreate(BaseModel):
     assignee_id: int | None = None
     brigade_id: int | None = None
     priority: Priority = Priority.normal
-    deadline: datetime | None = None
+    deadline: LocalDatetime | None = None
     norm_hours: float | None = Field(default=None, gt=0, description="Срок как норматив в часах")
     comment: str | None = None
 
@@ -49,7 +62,7 @@ class ReassignIn(BaseModel):
 
 class PriorityIn(BaseModel):
     priority: Priority
-    deadline: datetime | None = None
+    deadline: LocalDatetime | None = None
 
 
 class MasterScoreIn(BaseModel):
