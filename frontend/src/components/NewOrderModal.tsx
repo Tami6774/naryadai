@@ -4,6 +4,8 @@ import { Section, Equipment, User, Priority, WorkType } from '../types';
 import { X, Sparkles, AlertTriangle, Clock, Camera, Check, ShieldAlert, Mic, MicOff, QrCode, Search } from 'lucide-react';
 import { useVoiceInput } from '../utils/useVoice';
 
+const MAX_PHOTOS = 5;  // как на сервере (routers/orders.py)
+
 interface NewOrderModalProps {
   onClose: () => void;
   onSuccess: () => void;
@@ -20,7 +22,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
   const [priority, setPriority] = useState<Priority>('emergency');
   const [workType, setWorkType] = useState<WorkType>('unplanned');
   const [assigneeId, setAssigneeId] = useState<number | ''>('');
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);  // фото неисправности, до MAX_PHOTOS
 
   const [suggestedFault, setSuggestedFault] = useState<any>(null);
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
@@ -152,8 +154,10 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
         comment: masterComment.trim() || undefined,
       });
 
-      if (photoFile && order.id) {
-        await api.uploadPhoto(order.id, 'before', photoFile);
+      if (order.id) {
+        for (const file of photoFiles) {
+          await api.uploadPhoto(order.id, 'before', file);
+        }
       }
 
       onSuccess();
@@ -448,25 +452,45 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
             <div className="flex items-center space-x-3">
               <label className="cursor-pointer flex items-center space-x-2 bg-slate-900 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl border border-slate-700 transition">
                 <Camera size={18} className="text-emerald-400" />
-                <span className="text-xs">{photoFile ? 'Фото выбрано' : 'Сделать фото / Галерея'}</span>
+                <span className="text-xs">
+                  {photoFiles.length >= MAX_PHOTOS ? `Выбрано ${MAX_PHOTOS} фото` : photoFiles.length ? 'Добавить ещё фото' : 'Сделать фото / Галерея'}
+                </span>
                 <input
                   type="file"
                   accept="image/*"
-                  capture="environment"
+                  multiple
                   className="hidden"
+                  disabled={photoFiles.length >= MAX_PHOTOS}
                   onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setPhotoFile(e.target.files[0]);
-                    }
+                    const picked = Array.from(e.target.files || []);
+                    setPhotoFiles(prev => [...prev, ...picked].slice(0, MAX_PHOTOS));
+                    e.target.value = '';  // позволяет выбрать тот же файл повторно
                   }}
                 />
               </label>
-              {photoFile && (
-                <span className="text-xs text-emerald-400 font-medium truncate max-w-xs">
-                  ✓ {photoFile.name} (будет сжато ≤ 1600px)
+              {photoFiles.length > 0 && (
+                <span className="text-xs text-emerald-400 font-medium">
+                  {photoFiles.length}/{MAX_PHOTOS} (будут сжаты ≤ 1600px)
                 </span>
               )}
             </div>
+            {photoFiles.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {photoFiles.map((f, i) => (
+                  <div key={`${f.name}_${i}`} className="flex items-center bg-slate-900 border border-slate-700 rounded-lg pl-2 text-[11px] text-slate-300">
+                    <span className="truncate max-w-[9rem]">✓ {f.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setPhotoFiles(prev => prev.filter((_, j) => j !== i))}
+                      className="min-w-[48px] min-h-[48px] flex items-center justify-center text-slate-400 hover:text-red-400"
+                      aria-label="Убрать фото"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Кнопки действий */}
