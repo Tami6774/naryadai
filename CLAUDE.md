@@ -13,6 +13,7 @@
 
 ## Key Commands
 - Start whole project: `./run.sh` (Runs FastAPI at :8000 and Frontend)
+- Start on Windows 11: `run_windows.bat` (wrapper over `run_windows.ps1`; sets up venv, DB, UI build, starts the server)
 - Backend tests: `pytest backend/tests -v`
 - Frontend dev: `cd frontend && npm run dev`
 - Frontend build: `cd frontend && npm run build`

@@ -21,13 +21,14 @@
 
 ## 🚀 Быстрый запуск
 
-**Требования:** Python 3.11+ (с модулем `venv`). Node.js нужен только для пересборки
-интерфейса — в архиве уже есть собранный `frontend/dist`.
+**Требования:** Python 3.11+ (с модулем `venv`). Node.js 18+ нужен для сборки интерфейса,
+если в архиве нет готового `frontend/dist` (скрипты запуска соберут его сами при первом запуске).
+На Windows 11 Python и Node.js скрипт может поставить сам через `winget` — см. [WINDOWS_GUIDE.md](WINDOWS_GUIDE.md).
 
 | ОС | Команда |
 |---|---|
 | Linux / macOS | `./run.sh` |
-| Windows 11 | двойной клик по `run_windows.bat` (или `run_windows.ps1` в PowerShell) |
+| Windows 11 | двойной клик по `run_windows.bat` (подробности — в [WINDOWS_GUIDE.md](WINDOWS_GUIDE.md)) |
 | Docker | `docker compose up --build` |
 
 При первом запуске скрипт сам создаёт виртуальное окружение, ставит зависимости и
@@ -112,6 +113,7 @@ cd frontend && npm install && npm run dev      # http://localhost:3000 (прок
 cd backend
 .venv/bin/python -m unittest discover -s tests -p "test_*.py"     # 36 тестов
 ```
+Windows (PowerShell): `cd backend; .venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"`
 Тестовый набор валидирует:
 - Все 10 статусов жизненного цикла (`test_lifecycle.py`);
 - Очередь нарядов и переходы исполнителей;

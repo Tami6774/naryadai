@@ -1,0 +1,6 @@
+# Windows launcher: CRLF on every checkout and in "Download ZIP" (cmd.exe is picky about LF-only .bat files)
+/run_windows.bat text eol=crlf
+/run_windows.ps1 text eol=crlf
+
+# Shell scripts stay LF even when checked out on Windows (WSL / Git Bash would choke on CRLF)
+*.sh text eol=lf
