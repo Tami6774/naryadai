@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from ..i18n import T
 from ..models import (
     Brigade,
     Employee,
@@ -33,6 +34,20 @@ WEIGHT_LABELS = {
     "volume": "Объём и сложность закрытых нарядов",
     "no_reject": "Без необоснованных отказов",
 }
+WEIGHT_LABELS_KZ = {
+    "quality": "Сапа (ЖИ/шебердің орташа бағасы)",
+    "on_time": "Мерзімінде орындалды",
+    "no_rework": "7 күнде қайта қарау мен қайталанатын бұзылусыз",
+    "volume": "Жабылған нарядтардың көлемі мен күрделілігі",
+    "no_reject": "Негізсіз бас тартусыз",
+}
+
+
+def weight_labels() -> dict[str, str]:
+    """Подписи компонентов рейтинга на языке запроса."""
+    return WEIGHT_LABELS_KZ if T("ru", "kz") == "kz" else WEIGHT_LABELS
+
+
 FINISHED = {Status.done, Status.ai_review, Status.closed, Status.rework}
 
 
@@ -134,7 +149,7 @@ def compute_rating(db: Session, start: datetime, end: datetime,
             "components": {k: round(v, 1) for k, v in comp.items()},
             "orders_closed": s["count"], "repeat_failures": s["repeat_count"],
             "rejects": s["rejects"], "rejects_unjustified": s["rejects_bad"],
-            "explanation": _explain(w, comp, s) if s["count"] else "Нет закрытых нарядов за период",
+            "explanation": _explain(w, comp, s) if s["count"] else T("Нет закрытых нарядов за период", "Кезең бойынша жабылған нарядтар жоқ"),
         })
     out.sort(key=lambda r: r["rating"], reverse=True)
     for i, r in enumerate(out, 1):
@@ -144,11 +159,14 @@ def compute_rating(db: Session, start: datetime, end: datetime,
 
 def _explain(w: Employee, comp: dict, s: dict) -> str:
     """Пояснение исполнителю, из чего сложился рейтинг (LLM-версия — на этапе ИИ)."""
-    parts = [f"{WEIGHT_LABELS[k]}: {comp[k]:.0f} × {WEIGHTS[k]:.2f} = {comp[k] * WEIGHTS[k]:.1f}"
+    labels = weight_labels()
+    parts = [f"{labels[k]}: {comp[k]:.0f} × {WEIGHTS[k]:.2f} = {comp[k] * WEIGHTS[k]:.1f}"
              for k in WEIGHTS]
     weakest = min(WEIGHTS, key=lambda k: comp[k])
-    return (f"{short_name(w.full_name)}: закрыто {s['count']} нарядов. " + "; ".join(parts)
-            + f". Главный резерв роста — «{WEIGHT_LABELS[weakest].lower()}».")
+    return (T(f"{short_name(w.full_name)}: закрыто {s['count']} нарядов. ",
+              f"{short_name(w.full_name)}: {s['count']} наряд жабылды. ") + "; ".join(parts)
+            + T(f". Главный резерв роста — «{labels[weakest].lower()}».",
+                f". Өсудің негізгі қоры — «{labels[weakest].lower()}»."))
 
 
 def shift_bounds(day: datetime, shift: str) -> tuple[datetime, datetime]:
@@ -194,18 +212,27 @@ def shift_report(db: Session, start: datetime, end: datetime,
         if o.work_type == "unplanned" and o.equipment:
             by_equipment[o.equipment.name] += 1
 
-    period_word = "смену" if (end - start) <= timedelta(hours=12) else "период"
-    summary = (
-        f"За {period_word} выдано {issued} нарядов, выполнено {len(done)}, закрыто мастером {len(closed)}, "
-        f"просрочено {len(overdue)}, отклонений {rejected}. "
-        f"Средняя оценка качества — {sum(scores) / len(scores):.0f}/100. " if scores else
-        f"За {period_word} выдано {issued} нарядов, выполнено {len(done)}, просрочено {len(overdue)}. "
-    )
+    short_period = (end - start) <= timedelta(hours=12)
+    period_word = T("смену" if short_period else "период", "ауысымда" if short_period else "кезеңде")
+    if scores:
+        summary = T(
+            f"За {period_word} выдано {issued} нарядов, выполнено {len(done)}, закрыто мастером {len(closed)}, "
+            f"просрочено {len(overdue)}, отклонений {rejected}. "
+            f"Средняя оценка качества — {sum(scores) / len(scores):.0f}/100. ",
+            f"{period_word.capitalize()} {issued} наряд берілді, {len(done)} орындалды, шебер {len(closed)} жапты, "
+            f"{len(overdue)} мерзімі өтті, {rejected} бас тарту. "
+            f"Сапаның орташа бағасы — {sum(scores) / len(scores):.0f}/100. ")
+    else:
+        summary = T(
+            f"За {period_word} выдано {issued} нарядов, выполнено {len(done)}, просрочено {len(overdue)}. ",
+            f"{period_word.capitalize()} {issued} наряд берілді, {len(done)} орындалды, {len(overdue)} мерзімі өтті. ")
     if by_equipment:
         top = max(by_equipment, key=by_equipment.get)
         if by_equipment[top] > 1:
-            summary += f"Больше всего внеплановых нарядов — {top} ({by_equipment[top]}). "
-    summary += f"Суммарный простой оборудования — {downtime / 60:.1f} ч."
+            summary += T(f"Больше всего внеплановых нарядов — {top} ({by_equipment[top]}). ",
+                         f"Жоспардан тыс нарядтар ең көп — {top} ({by_equipment[top]}). ")
+    summary += T(f"Суммарный простой оборудования — {downtime / 60:.1f} ч.",
+                     f"Жабдықтың жиынтық тоқтап тұруы — {downtime / 60:.1f} сағ.")
 
     reaction_times = [(o.started_at - o.created_at).total_seconds() / 60
                       for o in orders if o.started_at and o.created_at and o.started_at > o.created_at]
@@ -269,7 +296,8 @@ def compute_brigade_rating(db: Session, start: datetime, end: datetime) -> list[
             "score": avg_score,
             "on_time_percent": on_time_pct,
             "rework_count": reworks,
-            "explanation": f"Средний балл рабочих: {avg_score}. Нарядов в срок: {on_time_pct}%.",
+            "explanation": T(f"Средний балл рабочих: {avg_score}. Нарядов в срок: {on_time_pct}%.",
+                             f"Жұмысшылардың орташа балы: {avg_score}. Мерзімінде орындалған нарядтар: {on_time_pct}%."),
         })
 
     res.sort(key=lambda x: (x["score"], x["on_time_percent"]), reverse=True)

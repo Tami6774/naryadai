@@ -35,7 +35,49 @@ from ..serializers import (
     short_name,
     work_minutes,
 )
+from ..i18n import T, is_kz
 from . import reports
+
+# Русские подписи с сервера (статусы, приоритеты, участки, шифры, специальности) → казахский
+_KZ_LABELS = {
+    "Выдан": "Берілді", "В очереди": "Кезекте", "Принят": "Қабылданды", "Отклонён": "Бас тартылды",
+    "В работе": "Жұмыста", "Приостановлен": "Тоқтатылды", "Исполнено": "Орындалды",
+    "Проверка ИИ": "ЖИ тексеруі", "На доработке": "Қайта қарауда", "Закрыт": "Жабылды", "Отменён": "Болдырылмады",
+    "Аварийный": "Апаттық", "Высокий": "Жоғары", "Обычный": "Қалыпты", "Плановый": "Жоспарлы",
+    "Принято": "Қабылданды", "Принято с замечаниями": "Ескертулермен қабылданды",
+    "Требует доработки": "Қайта қарауды қажет етеді",
+    "Слесарь": "Слесарь", "Электрик": "Электрик", "Сварщик": "Дәнекерлеуші",
+    "Мастер смены": "Ауысым шебері", "Главный механик": "Бас механик", "Администратор": "Әкімші",
+    "Участок дробления": "Ұсақтау бөлімшесі", "Обогатительная фабрика": "Байыту фабрикасы",
+    "Участок сушки": "Кептіру бөлімшесі", "Ремонтно-механический цех": "Жөндеу-механикалық цех",
+    "Износ футеровки / бронеплит": "Футеровка / сауыт тақталарының тозуы",
+    "Разрушение подшипника": "Мойынтіректің бұзылуы",
+    "Износ роликов / барабана": "Ролик / барабанның тозуы",
+    "Порыв конвейерной ленты": "Конвейер лентасының үзілуі",
+    "Неисправность редуктора": "Редуктордың ақауы",
+    "Ослабление крепежа, вибрация": "Бекітпенің босауы, діріл",
+    "Трещина металлоконструкции": "Металл құрылымдағы жарықшақ",
+    "Износ зубчатой передачи": "Тісті берілістің тозуы",
+    "Отказ электродвигателя": "Электр қозғалтқыштың істен шығуы",
+    "Повреждение кабеля": "Кабельдің зақымдануы",
+    "Неисправность пускателя / автомата": "Іске қосқыш / автоматтың ақауы",
+    "Отказ датчика": "Датчиктің істен шығуы",
+    "Неисправность освещения": "Жарықтандырудың ақауы",
+    "Течь масла / гидрожидкости": "Май / гидрсұйықтықтың ағуы",
+    "Отказ гидронасоса": "Гидрсорғының істен шығуы",
+    "Повреждение РВД": "Жоғары қысымды шлангының зақымдануы",
+    "Утечка сжатого воздуха": "Сығылған ауаның ағуы",
+    "Неисправность пневмоцилиндра": "Пневмоцилиндрдің ақауы",
+    "Нарушение смазки узла": "Тораптың майлануының бұзылуы",
+    "Загрязнение / замена масла": "Майдың ластануы / ауыстыру",
+}
+
+
+def _kz(text):
+    """Подпись из справочника на языке запроса (для неизвестных текстов — как есть)."""
+    if text is None or not is_kz():
+        return text
+    return _KZ_LABELS.get(text, text)
 
 # Цветовая палитра оформления АО «Костанайские Минералы»
 COLOR_HEADER_BG = "1E293B"      # slate-800
@@ -95,33 +137,33 @@ def export_shift_report_excel(db: Session, start: datetime, end: datetime,
 
     # Лист 1: Сводка смены
     ws_sum = wb.active
-    ws_sum.title = "Сводка смены"
+    ws_sum.title = T("Сводка смены", "Ауысым қорытындысы")
     ws_sum.views.sheetView[0].showGridLines = True
 
     # Заголовок документа
     ws_sum.merge_cells("A1:G1")
     title_cell = ws_sum["A1"]
-    title_cell.value = "АО «Костанайские Минералы» — Сводный отчёт за смену"
+    title_cell.value = T("АО «Костанайские Минералы» — Сводный отчёт за смену", "«Қостанай минералдары» АҚ — Ауысымның жиынтық есебі")
     title_cell.font = Font(name="Arial", size=14, bold=True, color="065F46")
     title_cell.alignment = Alignment(horizontal="center", vertical="center")
     ws_sum.row_dimensions[1].height = 35
 
-    ws_sum["A2"] = f"Период: {start.strftime('%d.%m.%Y %H:%M')} — {end.strftime('%d.%m.%Y %H:%M')}"
+    ws_sum["A2"] = f"{T('Период', 'Кезең')}: {start.strftime('%d.%m.%Y %H:%M')} — {end.strftime('%d.%m.%Y %H:%M')}"
     ws_sum["A2"].font = Font(name="Arial", size=10, italic=True)
 
     # Таблица показателей
     metrics = [
-        ("Выдано нарядов за смену", data["issued"]),
-        ("Выполнено нарядов (завершено)", data["done"]),
-        ("Закрыто и утверждено мастером", data["closed"]),
-        ("Просрочено нарядов", data["overdue"]),
-        ("Отклонений исполнителями", data["rejected"]),
-        ("Суммарный простой оборудования (часов)", f"{data['downtime_hours']} ч"),
-        ("Средняя оценка качества закрытия (ИИ)", f"{data['avg_score']}/100" if data['avg_score'] else "—"),
+        (T("Выдано нарядов за смену", "Ауысымда берілген нарядтар"), data["issued"]),
+        (T("Выполнено нарядов (завершено)", "Орындалған нарядтар (аяқталған)"), data["done"]),
+        (T("Закрыто и утверждено мастером", "Шебер жауып, бекіткен"), data["closed"]),
+        (T("Просрочено нарядов", "Мерзімі өткен нарядтар"), data["overdue"]),
+        (T("Отклонений исполнителями", "Орындаушылардың бас тартулары"), data["rejected"]),
+        (T("Суммарный простой оборудования (часов)", "Жабдықтың жиынтық тоқтап тұруы (сағат)"), f"{data['downtime_hours']} {T('ч', 'сағ')}"),
+        (T("Средняя оценка качества закрытия (ИИ)", "Жабудың орташа сапа бағасы (ЖИ)"), f"{data['avg_score']}/100" if data['avg_score'] else "—"),
     ]
 
-    ws_sum.cell(row=4, column=1, value="Показатель смены")
-    ws_sum.cell(row=4, column=2, value="Значение")
+    ws_sum.cell(row=4, column=1, value=T("Показатель смены", "Ауысым көрсеткіші"))
+    ws_sum.cell(row=4, column=2, value=T("Значение", "Мәні"))
     _style_header_row(ws_sum, 4, 2, bg_hex="065F46", fg_hex="FFFFFF")
 
     cur_row = 5
@@ -135,7 +177,7 @@ def export_shift_report_excel(db: Session, start: datetime, end: datetime,
 
     # ИИ-резюме
     cur_row += 1
-    ws_sum.cell(row=cur_row, column=1, value="Итоговое ИИ-резюме смены:").font = Font(name="Arial", size=10, bold=True)
+    ws_sum.cell(row=cur_row, column=1, value=T("Итоговое ИИ-резюме смены:", "Ауысымның қорытынды ЖИ-түйіндемесі:")).font = Font(name="Arial", size=10, bold=True)
     cur_row += 1
     ws_sum.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row + 2, end_column=6)
     summary_cell = ws_sum.cell(row=cur_row, column=1, value=data["summary"])
@@ -145,9 +187,9 @@ def export_shift_report_excel(db: Session, start: datetime, end: datetime,
 
     # Таблица загрузки сотрудников
     cur_row += 4
-    ws_sum.cell(row=cur_row, column=1, value="Загрузка ремонтно-технического персонала").font = Font(name="Arial", size=11, bold=True)
+    ws_sum.cell(row=cur_row, column=1, value=T("Загрузка ремонтно-технического персонала", "Жөндеу-техникалық персоналдың жүктемесі")).font = Font(name="Arial", size=11, bold=True)
     cur_row += 1
-    load_headers = ["Сотрудник", "Нарядов", "Отработано (мин)", "Отработано (ч)"]
+    load_headers = [T("Сотрудник", "Қызметкер"), T("Нарядов", "Нарядтар"), T("Отработано (мин)", "Жұмыс істеді (мин)"), T("Отработано (ч)", "Жұмыс істеді (сағ)")]
     for c_idx, h in enumerate(load_headers, 1):
         ws_sum.cell(row=cur_row, column=c_idx, value=h)
     _style_header_row(ws_sum, cur_row, len(load_headers))
@@ -165,12 +207,14 @@ def export_shift_report_excel(db: Session, start: datetime, end: datetime,
     _auto_column_widths(ws_sum)
 
     # Лист 2: Реестр нарядов смены
-    ws_orders = wb.create_sheet(title="Наряды смены")
+    ws_orders = wb.create_sheet(title=T("Наряды смены", "Ауысым нарядтары"))
     ws_orders.views.sheetView[0].showGridLines = True
     order_headers = [
-        "№ наряда", "Оборудование", "Участок", "Приоритет", "Тип",
-        "Исполнитель", "Статус", "Срок", "Просрочен", "Время (мин)",
-        "Оценка ИИ", "Шифр дефекта",
+        T("№ наряда", "Наряд №"), T("Оборудование", "Жабдық"), T("Участок", "Бөлімше"),
+        T("Приоритет", "Басымдық"), T("Тип", "Түрі"),
+        T("Исполнитель", "Орындаушы"), T("Статус", "Мәртебесі"), T("Срок", "Мерзімі"),
+        T("Просрочен", "Мерзімі өтті"), T("Время (мин)", "Уақыт (мин)"),
+        T("Оценка ИИ", "ЖИ бағасы"), T("Шифр дефекта", "Ақау шифры"),
     ]
     for c_idx, h in enumerate(order_headers, 1):
         ws_orders.cell(row=1, column=c_idx, value=h)
@@ -181,13 +225,13 @@ def export_shift_report_excel(db: Session, start: datetime, end: datetime,
     for o in orders:
         ws_orders.cell(row=r_idx, column=1, value=o.number).alignment = Alignment(horizontal="center")
         ws_orders.cell(row=r_idx, column=2, value=o.equipment.name if o.equipment else "—")
-        ws_orders.cell(row=r_idx, column=3, value=o.section.name if o.section else "—")
-        ws_orders.cell(row=r_idx, column=4, value=PRIORITY_LABELS.get(o.priority, str(o.priority)))
-        ws_orders.cell(row=r_idx, column=5, value="Внеплановый" if o.work_type == "unplanned" else "Плановый")
+        ws_orders.cell(row=r_idx, column=3, value=_kz(o.section.name) if o.section else "—")
+        ws_orders.cell(row=r_idx, column=4, value=_kz(PRIORITY_LABELS.get(o.priority, str(o.priority))))
+        ws_orders.cell(row=r_idx, column=5, value=T("Внеплановый", "Жоспардан тыс") if o.work_type == "unplanned" else T("Плановый", "Жоспарлы"))
         ws_orders.cell(row=r_idx, column=6, value=short_name(o.assignee.full_name) if o.assignee else "—")
-        ws_orders.cell(row=r_idx, column=7, value=STATUS_LABELS.get(Status(o.status), str(o.status)))
+        ws_orders.cell(row=r_idx, column=7, value=_kz(STATUS_LABELS.get(Status(o.status), str(o.status))))
         ws_orders.cell(row=r_idx, column=8, value=o.deadline.strftime("%H:%M %d.%m") if o.deadline else "—")
-        ws_orders.cell(row=r_idx, column=9, value="Да" if reports.is_overdue(o) else "Нет").alignment = Alignment(horizontal="center")
+        ws_orders.cell(row=r_idx, column=9, value=T("Да", "Иә") if reports.is_overdue(o) else T("Нет", "Жоқ")).alignment = Alignment(horizontal="center")
         minutes = work_minutes(o)
         ws_orders.cell(row=r_idx, column=10, value=int(minutes) if minutes is not None else "—").alignment = Alignment(horizontal="center")
         score = o.assessment.final_score if o.assessment else None
@@ -212,28 +256,33 @@ def export_rating_excel(db: Session, start: datetime, end: datetime, brigade_id:
     rows = reports.compute_rating(db, start, end, brigade_id)
     wb = Workbook()
     ws = wb.active
-    ws.title = "Рейтинг сотрудников"
+    ws.title = T("Рейтинг сотрудников", "Қызметкерлер рейтингі")
     ws.views.sheetView[0].showGridLines = True
 
     # Заголовок
     ws.merge_cells("A1:K1")
     t = ws["A1"]
-    t.value = "АО «Костанайские Минералы» — Объективный рейтинг ремонтно-технического персонала"
+    t.value = T("АО «Костанайские Минералы» — Объективный рейтинг ремонтно-технического персонала", "«Қостанай минералдары» АҚ — Жөндеу-техникалық персоналдың объективті рейтингі")
     t.font = Font(name="Arial", size=13, bold=True, color="065F46")
     t.alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[1].height = 32
 
     ws["A2"] = (
-        f"Период: {start.strftime('%d.%m.%Y')} — {end.strftime('%d.%m.%Y')} | "
-        f"Формула: 0.35·Качество + 0.25·В срок + 0.20·(100 − Повторы) + 0.15·Объём + 0.05·(100 − Отказы)"
+        f"{T('Период', 'Кезең')}: {start.strftime('%d.%m.%Y')} — {end.strftime('%d.%m.%Y')} | "
+        f"{T('Формула', 'Формула')}: " + T(
+            "0.35·Качество + 0.25·В срок + 0.20·(100 − Повторы) + 0.15·Объём + 0.05·(100 − Отказы)",
+            "0.35·Сапа + 0.25·Мерзімінде + 0.20·(100 − Қайталаулар) + 0.15·Көлем + 0.05·(100 − Бас тартулар)")
     )
     ws["A2"].font = Font(name="Arial", size=9, italic=True)
 
     headers = [
-        "Место", "Сотрудник", "Специальность", "Разряд", "Бригада",
-        "Итоговый балл", "Качество (35%)", "В срок (25%)", "Без повторов (20%)",
-        "Объём/сложность (15%)", "Без отказов (5%)", "Закрыто нарядов", "Повторов за 7 дней",
-        "ИИ-рекомендация исполнителю",
+        T("Место", "Орны"), T("Сотрудник", "Қызметкер"), T("Специальность", "Мамандығы"),
+        T("Разряд", "Разряд"), T("Бригада", "Бригада"),
+        T("Итоговый балл", "Қорытынды балл"), T("Качество (35%)", "Сапа (35%)"),
+        T("В срок (25%)", "Мерзімінде (25%)"), T("Без повторов (20%)", "Қайталаусыз (20%)"),
+        T("Объём/сложность (15%)", "Көлем/күрделілік (15%)"), T("Без отказов (5%)", "Бас тартусыз (5%)"),
+        T("Закрыто нарядов", "Жабылған нарядтар"), T("Повторов за 7 дней", "7 күндегі қайталаулар"),
+        T("ИИ-рекомендация исполнителю", "Орындаушыға ЖИ ұсынысы"),
     ]
     for c_idx, h in enumerate(headers, 1):
         ws.cell(row=4, column=c_idx, value=h)
@@ -245,7 +294,7 @@ def export_rating_excel(db: Session, start: datetime, end: datetime, brigade_id:
         place_cell.alignment = Alignment(horizontal="center")
         place_cell.font = Font(name="Arial", size=10, bold=True)
         ws.cell(row=r_idx, column=2, value=row["full_name"]).font = Font(name="Arial", size=10, bold=True)
-        ws.cell(row=r_idx, column=3, value=row["specialty"])
+        ws.cell(row=r_idx, column=3, value=_kz(row["specialty"]))
         ws.cell(row=r_idx, column=4, value=row["grade"]).alignment = Alignment(horizontal="center")
         ws.cell(row=r_idx, column=5, value=row.get("brigade", {}).get("name", "—") if row.get("brigade") else "—")
         
@@ -284,19 +333,21 @@ def export_materials_excel(db: Session, start: datetime, end: datetime) -> io.By
     materials_stat = get_materials_report(db, start, end)
     wb = Workbook()
     ws = wb.active
-    ws.title = "Списание ТМЦ"
+    ws.title = T("Списание ТМЦ", "ТМҚ есептен шығару")
     ws.views.sheetView[0].showGridLines = True
 
     ws.merge_cells("A1:G1")
     t = ws["A1"]
-    t.value = "АО «Костанайские Минералы» — Отчёт по списанию запчастей и ТМЦ против нормативов"
+    t.value = T("АО «Костанайские Минералы» — Отчёт по списанию запчастей и ТМЦ против нормативов", "«Қостанай минералдары» АҚ — Қосалқы бөлшектер мен ТМҚ-ны нормативтерге қарсы есептен шығару есебі")
     t.font = Font(name="Arial", size=13, bold=True, color="1E3A8A")
     t.alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[1].height = 32
 
     headers = [
-        "Наименование ТМЦ / запчасти", "Ед. изм.", "Фактически списано",
-        "Типичный норматив", "Отклонение от нормы", "Кол-во нарядов", "Статус контроля ИИ",
+        T("Наименование ТМЦ / запчасти", "ТМҚ / қосалқы бөлшек атауы"), T("Ед. изм.", "Өлшем бірлігі"),
+        T("Фактически списано", "Нақты есептен шығарылды"),
+        T("Типичный норматив", "Типтік норматив"), T("Отклонение от нормы", "Нормадан ауытқу"),
+        T("Кол-во нарядов", "Нарядтар саны"), T("Статус контроля ИИ", "ЖИ бақылау мәртебесі"),
     ]
     for c_idx, h in enumerate(headers, 1):
         ws.cell(row=3, column=c_idx, value=h)
@@ -353,8 +404,8 @@ def get_materials_report(db: Session, start: datetime, end: datetime) -> dict:
     for w in writeoffs:
         mid = w.material_id
         if mid not in by_mat:
-            mat_name = w.material.name if w.material else f"Материал #{mid}"
-            mat_unit = w.material.unit if w.material else "ед."
+            mat_name = w.material.name if w.material else f"{T('Материал', 'Материал')} #{mid}"
+            mat_unit = w.material.unit if w.material else T("ед.", "бірл.")
             by_mat[mid] = {
                 "material_id": mid,
                 "name": mat_name,
@@ -393,7 +444,7 @@ def get_materials_report(db: Session, start: datetime, end: datetime) -> dict:
             "orders_count": len(stat["orders"]),
             "overuse_count": stat["overuse_events"],
             "is_anomaly": is_anom,
-            "status_label": "⚠️ Перерасход выше нормы" if is_anom else "Нормативный расход",
+            "status_label": T("⚠️ Перерасход выше нормы", "⚠️ Норма үстіндегі артық шығын") if is_anom else T("Нормативный расход", "Нормативтік шығын"),
         })
 
     items.sort(key=lambda x: (x["is_anomaly"], x["diff_pct"]), reverse=True)
@@ -422,31 +473,31 @@ def generate_order_print_html(order: WorkOrder) -> str:
     events_html = "".join(
         f"<tr><td>{ev.created_at.strftime('%d.%m.%Y %H:%M:%S') if ev.created_at else '—'}</td>"
         f"<td><strong>{_e(ev.action)}</strong></td>"
-        f"<td>{_e(short_name(ev.actor.full_name)) if ev.actor else 'ИИ / Система'}</td>"
+        f"<td>{_e(short_name(ev.actor.full_name)) if ev.actor else T('ИИ / Система', 'ЖИ / Жүйе')}</td>"
         f"<td>{_e(ev.comment or ev.reason or '—')}</td></tr>"
         for ev in (order.events or [])
     )
 
     mats_html = "".join(
-        f"<tr><td>{_e(m.material.name) if m.material else f'Материал #{m.material_id}'}</td>"
-        f"<td>{_e(m.qty)} {_e(m.material.unit) if m.material else 'ед.'}</td></tr>"
+        f"<tr><td>{_e(m.material.name) if m.material else f"{T('Материал', 'Материал')} #{m.material_id}"}</td>"
+        f"<td>{_e(m.qty)} {_e(m.material.unit) if m.material else T('ед.', 'бірл.')}</td></tr>"
         for m in (order.materials or [])
-    ) or "<tr><td colspan='2' style='text-align:center; color:#64748b;'>Материалы не списывались</td></tr>"
+    ) or "<tr><td colspan='2' style='text-align:center; color:#64748b;'>{}</td></tr>".format(T('Материалы не списывались', 'Материалдар есептен шығарылмады'))
 
-    eq_desc = (f"{_e(order.equipment.name)} (Инв. № {_e(order.equipment.inv_no)})" if order.equipment
-               else "Не указано (Инв. № —)")
-    sec_name = _e(order.section.name) if order.section else "Не указан"
+    eq_desc = (f"{_e(order.equipment.name)} ({T('Инв. №', 'Инв. №')} {_e(order.equipment.inv_no)})" if order.equipment
+               else T("Не указано (Инв. № —)", "Көрсетілмеген (Инв. № —)"))
+    sec_name = _e(_kz(order.section.name)) if order.section else T("Не указан", "Көрсетілмеген")
     created_str = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else "—"
     deadline_str = order.deadline.strftime('%d.%m.%Y %H:%M') if order.deadline else "—"
-    master_name = _e(order.master.full_name) if order.master else "Мастер смены"
-    assignee_name = _e(order.assignee.full_name) if order.assignee else "Не назначен"
-    assignee_spec = _e(order.assignee.specialty) if order.assignee else "—"
-    priority_label = _e(PRIORITY_LABELS.get(order.priority, str(order.priority)))
+    master_name = _e(order.master.full_name) if order.master else T("Мастер смены", "Ауысым шебері")
+    assignee_name = _e(order.assignee.full_name) if order.assignee else T("Не назначен", "Тағайындалмаған")
+    assignee_spec = _e(_kz(order.assignee.specialty)) if order.assignee else "—"
+    priority_label = _e(_kz(PRIORITY_LABELS.get(order.priority, str(order.priority))))
     description = _e(order.description or '—')
     comment = _e(order.comment) if order.comment else ''
     fault_code = _e(order.fault_code.code) if order.fault_code else '—'
-    fault_name = _e(order.fault_code.name) if order.fault_code else '—'
-    work_done = _e(order.work_done) if order.work_done else 'Работы не описаны'
+    fault_name = _e(_kz(order.fault_code.name)) if order.fault_code else '—'
+    work_done = _e(order.work_done) if order.work_done else T('Работы не описаны', 'Жұмыстар сипатталмаған')
     close_comment = _e(order.close_comment) if order.close_comment else ''
 
     assessment_html = ""
@@ -454,25 +505,25 @@ def generate_order_print_html(order: WorkOrder) -> str:
         a = order.assessment
         v_raw = a.verdict.value if hasattr(a.verdict, "value") else str(a.verdict)
         verdict_trans = _e({
-            "accepted": "✅ Принято без замечаний",
-            "accepted_with_remarks": "⚠️ Принято с замечаниями",
-            "needs_rework": "❌ Требует доработки",
+            "accepted": T("✅ Принято без замечаний", "✅ Ескертусіз қабылданды"),
+            "accepted_with_remarks": T("⚠️ Принято с замечаниями", "⚠️ Ескертулермен қабылданды"),
+            "needs_rework": T("❌ Требует доработки", "❌ Қайта қарауды қажет етеді"),
         }.get(v_raw, v_raw))
         assessment_html = f"""
         <div class="box ai-box">
-            <h3>🤖 ИИ-ЗАКЛЮЧЕНИЕ ЦИФРОВОГО КОНТРОЛЁРА («НарядAI»)</h3>
-            <p><strong>Вердикт ИИ:</strong> {verdict_trans} | <strong>Балл:</strong> {_e(a.score)}/100
-               {f'| <strong>Мастер скорректировал оценку:</strong> {_e(a.master_score)}/100' if a.master_score is not None else ''}</p>
-            <p><strong>Пояснение:</strong> {_e(a.explanation or '—')}</p>
-            {f'<p><strong>Комментарий мастера:</strong> {_e(a.master_comment)}</p>' if a.master_comment else ''}
+            <h3>{T('🤖 ИИ-ЗАКЛЮЧЕНИЕ ЦИФРОВОГО КОНТРОЛЁРА («НарядAI»)', '🤖 ЦИФРЛЫҚ БАҚЫЛАУШЫНЫҢ ЖИ-ҚОРЫТЫНДЫСЫ («НарядAI»)')}</h3>
+            <p><strong>{T('Вердикт ИИ:', 'ЖИ үкімі:')}</strong> {verdict_trans} | <strong>{T('Балл:', 'Балл:')}</strong> {_e(a.score)}/100
+               {f'| <strong>{T('Мастер скорректировал оценку:', 'Шебер бағаны түзетті:')}</strong> {_e(a.master_score)}/100' if a.master_score is not None else ''}</p>
+            <p><strong>{T('Пояснение:', 'Түсініктеме:')}</strong> {_e(a.explanation or '—')}</p>
+            {f'<p><strong>{T('Комментарий мастера:', 'Шебердің түсініктемесі:')}</strong> {_e(a.master_comment)}</p>' if a.master_comment else ''}
         </div>
         """
 
     return f"""<!DOCTYPE html>
-<html lang="ru">
+<html lang="{T('ru', 'kk')}">
 <head>
 <meta charset="utf-8">
-<title>Наряд-задание №{order.number} — АО «Костанайские Минералы»</title>
+<title>{T('Наряд-задание', 'Наряд-тапсырма')} №{order.number} — {T('АО «Костанайские Минералы»', '«Қостанай минералдары» АҚ')}</title>
 <style>
     @page {{ size: A4; margin: 15mm; }}
     body {{
@@ -531,48 +582,48 @@ def generate_order_print_html(order: WorkOrder) -> str:
 
 <div class="no-print" style="margin-bottom: 15px; text-align: right;">
     <button onclick="window.print()" style="padding: 8px 16px; background: #059669; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
-        🖨️ Распечатать / Сохранить в PDF
+        🖨️ {T('Распечатать / Сохранить в PDF', 'Басып шығару / PDF-ке сақтау')}
     </button>
 </div>
 
 <div class="header">
-    <h1>АО «КОСТАНАЙСКИЕ МИНЕРАЛЫ»</h1>
-    <h2>НАРЯД-ЗАДАНИЕ № {order.number} НА ВЫПОЛНЕНИЕ РЕМОНТНЫХ РАБОТ</h2>
-    <div style="font-size: 9pt; color: #64748b; margin-top: 4px;">Система автоматизированного контроля «НарядAI»</div>
+    <h1>{T('АО «КОСТАНАЙСКИЕ МИНЕРАЛЫ»', '«ҚОСТАНАЙ МИНЕРАЛДАРЫ» АҚ')}</h1>
+    <h2>{T('НАРЯД-ЗАДАНИЕ №', 'ЖӨНДЕУ ЖҰМЫСТАРЫН ОРЫНДАУҒА НАРЯД-ТАПСЫРМА №')} {order.number}{T(' НА ВЫПОЛНЕНИЕ РЕМОНТНЫХ РАБОТ', '')}</h2>
+    <div style="font-size: 9pt; color: #64748b; margin-top: 4px;">{T('Система автоматизированного контроля «НарядAI»', '«НарядAI» автоматтандырылған бақылау жүйесі')}</div>
 </div>
 
 <div class="meta-grid">
     <div class="box">
-        <h3>ОБОРУДОВАНИЕ И УЧАСТОК</h3>
-        <div><strong>Оборудование:</strong> {eq_desc}</div>
-        <div><strong>Участок:</strong> {sec_name}</div>
-        <div><strong>Тип работ:</strong> {'Внеплановый (аварийный)' if order.work_type == 'unplanned' else 'Плановый регламентный'}</div>
-        <div><strong>Приоритет:</strong> <span class="badge {'badge-emergency' if order.priority == 'emergency' else 'badge-normal'}">{priority_label}</span></div>
+        <h3>{T('ОБОРУДОВАНИЕ И УЧАСТОК', 'ЖАБДЫҚ ЖӘНЕ БӨЛІМШЕ')}</h3>
+        <div><strong>{T('Оборудование:', 'Жабдық:')}</strong> {eq_desc}</div>
+        <div><strong>{T('Участок:', 'Бөлімше:')}</strong> {sec_name}</div>
+        <div><strong>{T('Тип работ:', 'Жұмыс түрі:')}</strong> {T('Внеплановый (аварийный)', 'Жоспардан тыс (апаттық)') if order.work_type == 'unplanned' else T('Плановый регламентный', 'Жоспарлы регламенттік')}</div>
+        <div><strong>{T('Приоритет:', 'Басымдық:')}</strong> <span class="badge {'badge-emergency' if order.priority == 'emergency' else 'badge-normal'}">{priority_label}</span></div>
     </div>
     <div class="box">
-        <h3>СРОКИ И ОТВЕТСТВЕННЫЕ</h3>
-        <div><strong>Выдан:</strong> {created_str}</div>
-        <div><strong>Срок исполнения:</strong> {deadline_str}</div>
-        <div><strong>Мастер смены:</strong> {master_name}</div>
-        <div><strong>Исполнитель:</strong> {assignee_name} ({assignee_spec})</div>
+        <h3>{T('СРОКИ И ОТВЕТСТВЕННЫЕ', 'МЕРЗІМДЕР ЖӘНЕ ЖАУАПТЫЛАР')}</h3>
+        <div><strong>{T('Выдан:', 'Берілді:')}</strong> {created_str}</div>
+        <div><strong>{T('Срок исполнения:', 'Орындау мерзімі:')}</strong> {deadline_str}</div>
+        <div><strong>{T('Мастер смены:', 'Ауысым шебері:')}</strong> {master_name}</div>
+        <div><strong>{T('Исполнитель:', 'Орындаушы:')}</strong> {assignee_name} ({assignee_spec})</div>
     </div>
 </div>
 
 <div class="box" style="margin-bottom: 12px;">
-    <h3>ОПИСАНИЕ НЕИСПРАВНОСТИ / ЗАДАНИЕ МАСТЕРА</h3>
+    <h3>{T('ОПИСАНИЕ НЕИСПРАВНОСТИ / ЗАДАНИЕ МАСТЕРА', 'АҚАУДЫҢ СИПАТТАМАСЫ / ШЕБЕРДІҢ ТАПСЫРМАСЫ')}</h3>
     <p style="margin: 4px 0;">{description}</p>
-    {f'<div style="font-size: 9pt; color: #64748b;">Комментарий: {comment}</div>' if comment else ''}
+    {f'<div style="font-size: 9pt; color: #64748b;">{T('Комментарий: {comment}', 'Түсініктеме: {comment}')}</div>' if comment else ''}
 </div>
 
 <div class="box" style="margin-bottom: 12px;">
-    <h3>ФАКТИЧЕСКИ ВЫПОЛНЕННЫЕ РАБОТЫ И МАТЕРИАЛЫ</h3>
-    <div><strong>Шифр неисправности:</strong> [{fault_code}] {fault_name}</div>
-    <div><strong>Выполненные операции:</strong> {work_done}</div>
-    {f'<div><strong>Комментарий исполнителя:</strong> {close_comment}</div>' if close_comment else ''}
+    <h3>{T('ФАКТИЧЕСКИ ВЫПОЛНЕННЫЕ РАБОТЫ И МАТЕРИАЛЫ', 'НАҚТЫ ОРЫНДАЛҒАН ЖҰМЫСТАР МЕН МАТЕРИАЛДАР')}</h3>
+    <div><strong>{T('Шифр неисправности:', 'Ақау шифры:')}</strong> [{fault_code}] {fault_name}</div>
+    <div><strong>{T('Выполненные операции:', 'Орындалған операциялар:')}</strong> {work_done}</div>
+    {f'<div><strong>{T('Комментарий исполнителя:', 'Орындаушының түсініктемесі:')}</strong> {close_comment}</div>' if close_comment else ''}
     
-    <h4 style="margin: 8px 0 2px; font-size: 9.5pt;">Списанные материалы и запчасти:</h4>
+    <h4 style="margin: 8px 0 2px; font-size: 9.5pt;">{T('Списанные материалы и запчасти:', 'Есептен шығарылған материалдар мен қосалқы бөлшектер:')}</h4>
     <table>
-        <thead><tr><th>Материал / Запчасть</th><th style="width: 120px;">Количество</th></tr></thead>
+        <thead><tr><th>{T('Материал / Запчасть', 'Материал / Қосалқы бөлшек')}</th><th style="width: 120px;">{T('Количество', 'Саны')}</th></tr></thead>
         <tbody>{mats_html}</tbody>
     </table>
 </div>
@@ -580,28 +631,28 @@ def generate_order_print_html(order: WorkOrder) -> str:
 {assessment_html}
 
 <div class="box" style="margin-bottom: 15px;">
-    <h3>ХРОНОЛОГИЯ ПЕРЕХОДОВ СТАТУСОВ</h3>
+    <h3>{T('ХРОНОЛОГИЯ ПЕРЕХОДОВ СТАТУСОВ', 'МӘРТЕБЕ ӨТУЛЕРІНІҢ ХРОНОЛОГИЯСЫ')}</h3>
     <table>
-        <thead><tr><th>Время</th><th>Действие</th><th>Автор</th><th>Примечание / Причина</th></tr></thead>
+        <thead><tr><th>{T('Время', 'Уақыт')}</th><th>{T('Действие', 'Әрекет')}</th><th>{T('Автор', 'Авторы')}</th><th>{T('Примечание / Причина', 'Ескертпе / Себеп')}</th></tr></thead>
         <tbody>{events_html}</tbody>
     </table>
 </div>
 
 <div class="signatures">
     <div>
-        <strong>Мастер смены:</strong>
+        <strong>{T('Мастер смены:', 'Ауысым шебері:')}</strong>
         <div class="sig-line"></div>
         <div style="font-size: 8.5pt; color: #64748b; margin-top: 2px;">{master_name}</div>
     </div>
     <div>
-        <strong>Исполнитель:</strong>
+        <strong>{T('Исполнитель:', 'Орындаушы:')}</strong>
         <div class="sig-line"></div>
         <div style="font-size: 8.5pt; color: #64748b; margin-top: 2px;">{assignee_name}</div>
     </div>
     <div>
-        <strong>Начальник участка / службы:</strong>
+        <strong>{T('Начальник участка / службы:', 'Бөлімше / қызмет бастығы:')}</strong>
         <div class="sig-line"></div>
-        <div style="font-size: 8.5pt; color: #64748b; margin-top: 2px;">Подпись / Дата</div>
+        <div style="font-size: 8.5pt; color: #64748b; margin-top: 2px;">{T('Подпись / Дата', 'Қолы / Күні')}</div>
     </div>
 </div>
 

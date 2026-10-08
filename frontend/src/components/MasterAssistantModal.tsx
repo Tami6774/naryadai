@@ -89,7 +89,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
     }
   };
 
-  // Запрос уходит на сервер по-русски (правила разбора фраз), подпись кнопки — на языке интерфейса
+  // Кнопка отправляет запрос на языке интерфейса; сервер разбирает обе версии фраз
   const samplePrompts: Array<[string, string]> = [
     ['Кто сейчас свободен из электриков?', 'Электриктерден қазір кім бос?'],
     ['Кто сейчас свободен из слесарей?', 'Слесарьлерден қазір кім бос?'],
@@ -139,7 +139,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
             {samplePrompts.map(([p, pKz], idx) => (
               <button
                 key={idx}
-                onClick={() => handleSend(p)}
+                onClick={() => handleSend(lang === 'kz' ? pKz : p)}
                 className="shrink-0 px-2.5 py-1 bg-slate-850 hover:bg-emerald-950/40 text-slate-300 hover:text-emerald-300 border border-slate-700/80 hover:border-emerald-700 rounded-lg transition text-xs whitespace-nowrap"
               >
                 {lang === 'kz' ? pKz : p}

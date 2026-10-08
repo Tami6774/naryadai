@@ -1,6 +1,7 @@
 """Преобразование ORM-объектов в JSON для API и подписи на русском."""
 from datetime import datetime
 
+from .i18n import T, is_kz
 from .models import (
     AIAssessment,
     Employee,
@@ -37,6 +38,25 @@ VERDICT_LABELS = {
     "accepted_with_remarks": "Принято с замечаниями",
     "needs_rework": "Требует доработки",
 }
+
+STATUS_LABELS_KZ = {
+    Status.issued: "Берілді", Status.queued: "Кезекте", Status.accepted: "Қабылданды",
+    Status.rejected: "Бас тартылды", Status.in_progress: "Жұмыста", Status.paused: "Тоқтатылды",
+    Status.done: "Орындалды", Status.ai_review: "ЖИ тексеруі", Status.rework: "Қайта қарауда",
+    Status.closed: "Жабылды", Status.cancelled: "Болдырылмады",
+}
+
+PRIORITY_LABELS_KZ = {"emergency": "Апаттық", "high": "Жоғары", "normal": "Қалыпты", "planned": "Жоспарлы"}
+
+
+def status_text(status: Status) -> str:
+    """Статус на языке запроса (для уведомлений и сообщений; в API остаётся STATUS_LABELS)."""
+    return (STATUS_LABELS_KZ if is_kz() else STATUS_LABELS)[Status(status)]
+
+
+def priority_text(priority: str) -> str:
+    return (PRIORITY_LABELS_KZ if is_kz() else PRIORITY_LABELS).get(priority, str(priority))
+
 
 ACTION_LABELS = {
     "issued": "Наряд выдан",
@@ -99,7 +119,7 @@ def event_out(ev: WorkOrderEvent) -> dict:
         "id": ev.id, "action": ev.action, "action_label": ACTION_LABELS.get(ev.action, ev.action),
         "from_status": ev.from_status, "to_status": ev.to_status,
         "comment": ev.comment, "reason": ev.reason, "created_at": ev.created_at,
-        "actor": employee_brief(ev.actor) if ev.actor else {"id": None, "short_name": "ИИ / система"},
+        "actor": employee_brief(ev.actor) if ev.actor else {"id": None, "short_name": T("ИИ / система", "ЖИ / жүйе")},
     }
 
 
@@ -134,8 +154,8 @@ def work_minutes(o: WorkOrder) -> float | None:
 def order_brief(o: WorkOrder) -> dict:
     now = datetime.now()
     overdue = is_overdue(o, now)
-    sec_data = {"id": o.section.id, "name": o.section.name} if o.section else {"id": 0, "name": "Не указан"}
-    eq_data = {"id": o.equipment.id, "name": o.equipment.name, "inv_no": o.equipment.inv_no} if o.equipment else {"id": 0, "name": "Не указано", "inv_no": "—"}
+    sec_data = {"id": o.section.id, "name": o.section.name} if o.section else {"id": 0, "name": T("Не указан", "Көрсетілмеген")}
+    eq_data = {"id": o.equipment.id, "name": o.equipment.name, "inv_no": o.equipment.inv_no} if o.equipment else {"id": 0, "name": T("Не указано", "Көрсетілмеген"), "inv_no": "—"}
     return {
         "id": o.id, "number": o.number, "work_type": o.work_type, "priority": o.priority,
         "priority_label": PRIORITY_LABELS.get(o.priority, str(o.priority)),
@@ -166,8 +186,8 @@ def order_full(o: WorkOrder) -> dict:
         "fault_code": ({"id": o.fault_code.id, "code": o.fault_code.code, "name": o.fault_code.name,
                         "norm_hours": o.fault_code.norm_hours} if o.fault_code else None),
         "materials": [{"id": m.id, "material_id": m.material_id,
-                       "name": m.material.name if m.material else f"Материал #{m.material_id}",
-                       "unit": m.material.unit if m.material else "ед.",
+                       "name": m.material.name if m.material else T(f"Материал #{m.material_id}", f"Материал #{m.material_id}"),
+                       "unit": m.material.unit if m.material else T("ед.", "бірл."),
                        "qty": m.qty} for m in (o.materials or [])],
         "photos": [photo_out(p) for p in o.photos],
         "events": [event_out(e) for e in o.events],

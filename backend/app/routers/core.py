@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from ..auth import create_token, current_user, require_roles, verify_pin
 from ..config import DEMO_MODE
 from ..db import get_db
+from ..i18n import T
 from ..models import (
     Brigade,
     Employee,
@@ -52,13 +53,14 @@ def login(data: LoginIn, db: Session = Depends(get_db)):
         wait_sec = int(LOCKOUT_WINDOW_SEC - (now_ts - attempts[0])) + 1
         raise HTTPException(
             429, 
-            f"Слишком много неудачных попыток входа. Подождите {wait_sec} сек."
+            T(f"Слишком много неудачных попыток входа. Подождите {wait_sec} сек.",
+              f"Кіру әрекеттері тым көп сәтсіз болды. {wait_sec} сек күтіңіз.")
         )
     
     user = db.scalar(select(Employee).where(Employee.login == clean_login))
     if not user or not verify_pin(data.pin, user.pin_hash):
         _login_failures[clean_login].append(now_ts)
-        raise HTTPException(401, "Неверный логин или ПИН-код")
+        raise HTTPException(401, T("Неверный логин или ПИН-код", "Логин немесе ПИН-код қате"))
         
     # Сброс счетчика при успешном входе
     _login_failures.pop(clean_login, None)
@@ -85,7 +87,7 @@ def push_token(data: PushTokenIn, db: Session = Depends(get_db), user: Employee 
 def demo_users(db: Session = Depends(get_db)):
     """Список тестовых учёток для экрана входа (только для демо)."""
     if not DEMO_MODE:
-        raise HTTPException(404, "Демо-режим отключен в конфигурации сервера")
+        raise HTTPException(404, T("Демо-режим отключен в конфигурации сервера", "Демо-режим сервер конфигурациясында өшірілген"))
     users = db.scalars(select(Employee).order_by(Employee.role, Employee.full_name)).all()
     return [{"login": u.login, "full_name": u.full_name, "role": u.role, "specialty": u.specialty}
             for u in users]
@@ -132,7 +134,7 @@ def set_worker_on_shift(worker_id: int, data: OnShiftIn, db: Session = Depends(g
                         user: Employee = Depends(require_roles(Role.master, Role.admin))):
     w = db.get(Employee, worker_id)
     if not w:
-        raise HTTPException(404, "Сотрудник не найден")
+        raise HTTPException(404, T("Сотрудник не найден", "Қызметкер табылмады"))
     w.on_shift = data.on_shift
     broadcast(db, {"type": "worker_updated", "worker_id": w.id})
     db.commit()
@@ -191,7 +193,7 @@ def rating(start: datetime | None = None, end: datetime | None = None, days: int
         return [{k: r[k] for k in ("id", "short_name", "rating", "place", "specialty")}
                 | ({"components": r["components"], "explanation": r["explanation"]}
                    if r["id"] == user.id else {}) for r in rows]
-    return {"weights": reports.WEIGHTS, "weight_labels": reports.WEIGHT_LABELS, "rows": rows}
+    return {"weights": reports.WEIGHTS, "weight_labels": reports.weight_labels(), "rows": rows}
 
 
 @router.get("/reports/brigades")
@@ -296,7 +298,7 @@ def equipment_history(equipment_id: int, days: int = 365, db: Session = Depends(
     from ..services.analytics import equipment_history as build
     data = build(db, equipment_id, days)
     if data is None:
-        raise HTTPException(404, "Оборудование не найдено")
+        raise HTTPException(404, T("Оборудование не найдено", "Жабдық табылмады"))
     return data
 
 

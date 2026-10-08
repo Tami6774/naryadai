@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..i18n import T
 from ..models import AIAssessment, MaterialNorm, Photo, Verdict, WorkOrder, WorkType
 from ..serializers import work_minutes
 from . import ai_llm
@@ -41,7 +42,7 @@ class ReviewResult:
 
 def _fmt_minutes(m: float) -> str:
     h, mm = divmod(int(round(m)), 60)
-    return f"{h} ч {mm} мин" if h else f"{mm} мин"
+    return f"{h} {T('ч', 'сағ')} {mm} {T('мин', 'мин')}" if h else f"{mm} {T('мин', 'мин')}"
 
 
 _STOP = {"и", "в", "на", "с", "по", "не", "для", "от", "до", "из", "за", "к", "о", "у", "а", "но"}
@@ -55,17 +56,17 @@ def _stems(text: str) -> set[str]:
 def check_completeness(o: WorkOrder, r: ReviewResult) -> None:
     has_after = any(p.kind == "after" for p in o.photos)
     if not o.work_done or len(o.work_done.strip()) < 5:
-        r.add("completeness", CRITICAL, "Не описаны выполненные работы", 35)
+        r.add("completeness", CRITICAL, T("Не описаны выполненные работы", "Орындалған жұмыстар сипатталмаған"), 35)
     if not o.fault_code_id:
-        r.add("completeness", CRITICAL, "Не указан шифр неисправности", 20)
+        r.add("completeness", CRITICAL, T("Не указан шифр неисправности", "Ақау шифры көрсетілмеген"), 20)
     if o.work_type == WorkType.unplanned and not has_after:
-        r.add("completeness", CRITICAL, "Нет фото «после» — обязательно для внеплановых работ", 35)
+        r.add("completeness", CRITICAL, T("Нет фото «после» — обязательно для внеплановых работ", "«Кейінгі» фото жоқ — жоспардан тыс жұмыстар үшін міндетті"), 35)
     elif not has_after:
-        r.add("completeness", REMARK, "Нет фото «после»", 5)
+        r.add("completeness", REMARK, T("Нет фото «после»", "«Кейінгі» фото жоқ"), 5)
     if not o.materials:
-        r.add("completeness", REMARK, "Не указаны списанные материалы (если не использовались — укажите в комментарии)", 3)
+        r.add("completeness", REMARK, T("Не указаны списанные материалы (если не использовались — укажите в комментарии)", "Есептен шығарылған материалдар көрсетілмеген (қолданылмаса — түсініктемеде көрсетіңіз)"), 3)
     if not any(c.name == "completeness" for c in r.checks):
-        r.add("completeness", OK, "Все обязательные поля закрытия заполнены")
+        r.add("completeness", OK, T("Все обязательные поля закрытия заполнены", "Жабудың барлық міндетті өрістері толтырылған"))
 
 
 from .ai_nlp import evaluate_work_relevance
@@ -82,12 +83,12 @@ def check_relevance(o: WorkOrder, r: ReviewResult, llm: dict | None = None) -> N
         return
     explanation = llm.get("explanation", "").strip()
     if llm.get("relevant"):
-        r.add("relevance", OK, f"Работы соответствуют проблеме и шифру. {explanation}")
+        r.add("relevance", OK, T(f"Работы соответствуют проблеме и шифру. {explanation}", f"Жұмыстар мәселе мен шифрға сәйкес. {explanation}"))
         return
     missing = [m for m in llm.get("missing", []) if m][:3]
-    text = f"Работы не устраняют заявленную проблему: {explanation}"
+    text = T(f"Работы не устраняют заявленную проблему: {explanation}", f"Жұмыстар мәлімделген мәселені жоймайды: {explanation}")
     if missing:
-        text += f" Не хватает: {'; '.join(missing)}."
+        text += T(f" Не хватает: {'; '.join(missing)}.", f" Жетіспейді: {'; '.join(missing)}.")
     confident = llm.get("confidence", 0) >= 0.6
     r.add("relevance", REMARK, text, 10 if confident else 5)
     if not confident:
@@ -100,42 +101,44 @@ def check_materials(db: Session, o: WorkOrder, r: ReviewResult) -> None:
     norms = {n.material_id: n.typical_qty for n in db.scalars(
         select(MaterialNorm).where(MaterialNorm.fault_code_id == o.fault_code_id))}
     problems = False
-    fc_code = o.fault_code.code if o.fault_code else "не указан"
+    fc_code = o.fault_code.code if o.fault_code else T("не указан", "көрсетілмеген")
     for m in o.materials:
         typical = norms.get(m.material_id)
-        name = m.material.name if m.material else f"Материал #{m.material_id}"
-        unit = m.material.unit if m.material else "ед."
+        name = m.material.name if m.material else T(f"Материал #{m.material_id}", f"Материал #{m.material_id}")
+        unit = m.material.unit if m.material else T("ед.", "бірл.")
         if typical is None:
             problems = True
             r.add("materials", REMARK,
-                  f"«{name}» нетипичен для шифра {fc_code}", 8)
+                  T(f"«{name}» нетипичен для шифра {fc_code}", f"«{name}» {fc_code} шифры үшін тән емес"), 8)
         elif m.qty > typical * 2:
             problems = True
             r.add("materials", CRITICAL,
-                  f"«{name}»: списано {m.qty:g} {unit} при обычном расходе "
-                  f"{typical:g} — завышение в {m.qty / typical:.1f} раза", 25)
+                  T(f"«{name}»: списано {m.qty:g} {unit} при обычном расходе "
+                    f"{typical:g} — завышение в {m.qty / typical:.1f} раза",
+                    f"«{name}»: {m.qty:g} {unit} есептен шығарылды, әдеттегі шығын "
+                    f"{typical:g} — {m.qty / typical:.1f} есе артық"), 25)
         elif m.qty > typical * 1.5:
             problems = True
             r.add("materials", REMARK,
-                  f"«{name}»: списано {m.qty:g} {unit} при обычном расходе {typical:g}", 8)
+                  T(f"«{name}»: списано {m.qty:g} {unit} при обычном расходе {typical:g}", f"«{name}»: {m.qty:g} {unit} есептен шығарылды, әдеттегі шығын {typical:g}"), 8)
     if not problems:
-        r.add("materials", OK, "Материалы соответствуют шифру и обычному расходу")
+        r.add("materials", OK, T("Материалы соответствуют шифру и обычному расходу", "Материалдар шифрға және әдеттегі шығынға сәйкес"))
 
 
 def check_time(o: WorkOrder, r: ReviewResult) -> None:
     minutes = work_minutes(o)
     if o.done_at and o.done_at > o.deadline:
         late = (o.done_at - o.deadline).total_seconds() / 60
-        r.add("time", REMARK, f"Выполнено с просрочкой на {_fmt_minutes(late)}", min(20, 5 + int(late // 30) * 3))
+        r.add("time", REMARK, T(f"Выполнено с просрочкой на {_fmt_minutes(late)}", f"Мерзімі өтіп орындалды: {_fmt_minutes(late)}"), min(20, 5 + int(late // 30) * 3))
     if minutes is None or not o.fault_code:
         return
     norm = o.fault_code.norm_hours * 60
     if minutes > norm * 1.5:
-        r.add("time", REMARK, f"Время работы {_fmt_minutes(minutes)} при нормативе {_fmt_minutes(norm)}", 8)
+        r.add("time", REMARK, T(f"Время работы {_fmt_minutes(minutes)} при нормативе {_fmt_minutes(norm)}", f"Жұмыс уақыты {_fmt_minutes(minutes)}, норматив {_fmt_minutes(norm)}"), 8)
     elif minutes < norm * 0.15 and o.work_type == WorkType.unplanned:
-        r.add("time", REMARK, f"Подозрительно быстро: {_fmt_minutes(minutes)} при нормативе {_fmt_minutes(norm)}", 5)
+        r.add("time", REMARK, T(f"Подозрительно быстро: {_fmt_minutes(minutes)} при нормативе {_fmt_minutes(norm)}", f"Күмәнді жылдам: {_fmt_minutes(minutes)}, норматив {_fmt_minutes(norm)}"), 5)
     elif not (o.done_at and o.done_at > o.deadline):
-        r.add("time", OK, f"Время {_fmt_minutes(minutes)} в пределах норматива {_fmt_minutes(norm)}")
+        r.add("time", OK, T(f"Время {_fmt_minutes(minutes)} в пределах норматива {_fmt_minutes(norm)}", f"Уақыт {_fmt_minutes(minutes)} норматив шегінде {_fmt_minutes(norm)}"))
 
 
 def check_photos(db: Session, o: WorkOrder, r: ReviewResult, llm: dict | None = None) -> None:
@@ -160,17 +163,17 @@ def check_photos(db: Session, o: WorkOrder, r: ReviewResult, llm: dict | None = 
         if dup:
             issues = True
             has_dup = True
-            r.add("photo", CRITICAL, "Фото «после» повторяет ранее загруженное фото другого наряда", 35)
+            r.add("photo", CRITICAL, T("Фото «после» повторяет ранее загруженное фото другого наряда", "«Кейінгі» фото басқа нарядқа бұрын жүктелген фотоны қайталайды"), 35)
         if p.taken_at and o.started_at and p.taken_at < o.started_at.replace(microsecond=0) and \
                 (o.started_at - p.taken_at).total_seconds() > 3600:
             issues = True
             has_early = True
-            r.add("photo", REMARK, "Фото «после» сделано до начала работ (по метаданным)", 15)
+            r.add("photo", REMARK, T("Фото «после» сделано до начала работ (по метаданным)", "«Кейінгі» фото жұмыс басталғанға дейін түсірілген (метадеректер бойынша)"), 15)
         for b in before:
             if b.phash and hamming(b.phash, p.phash) <= 3:
                 issues = True
                 has_identical = True
-                r.add("photo", REMARK, "Фото «после» практически совпадает с фото «до» — устранение не видно", 15)
+                r.add("photo", REMARK, T("Фото «после» практически совпадает с фото «до» — устранение не видно", "«Кейінгі» фото «дейінгі» фотомен дерлік сәйкес — жою көрінбейді"), 15)
                 r.needs_master_check = True
 
     if has_dup:
@@ -180,7 +183,7 @@ def check_photos(db: Session, o: WorkOrder, r: ReviewResult, llm: dict | None = 
     elif has_identical:
         r.photo_score = 3
     elif not issues:
-        r.add("photo", OK, "Фото «после» свежее и не повторяет старые снимки")
+        r.add("photo", OK, T("Фото «после» свежее и не повторяет старые снимки", "«Кейінгі» фото жаңа және ескі суреттерді қайталамайды"))
         r.photo_score = 5 if before else 4
     else:
         r.photo_score = 3
@@ -195,21 +198,21 @@ def _apply_photo_llm(r: ReviewResult, llm: dict, rules_flagged_fraud: bool, has_
     confident = llm.get("confidence", 0) >= 0.6
     flagged = False
     if has_before and not llm.get("same_equipment", True):
-        r.add("photo", REMARK, f"На фото «после», по оценке ИИ, другое оборудование. {explanation}", 15)
+        r.add("photo", REMARK, T(f"На фото «после», по оценке ИИ, другое оборудование. {explanation}", f"ЖИ бағасы бойынша «кейінгі» фотода басқа жабдық. {explanation}"), 15)
         r.needs_master_check = flagged = True
     if llm.get("problem_fixed") == "no":
-        r.add("photo", REMARK, f"По фото проблема не устранена. {explanation}", 15)
+        r.add("photo", REMARK, T(f"По фото проблема не устранена. {explanation}", f"Фото бойынша мәселе жойылмаған. {explanation}"), 15)
         flagged = True
     elif llm.get("problem_fixed") == "unclear":
         r.needs_master_check = True
     issues = [q for q in llm.get("quality_issues", []) if q][:3]
     if issues:
-        r.add("photo", REMARK, "Видимые недочёты по фото: " + "; ".join(issues), 5)
+        r.add("photo", REMARK, T("Видимые недочёты по фото: ", "Фото бойынша көрінетін кемшіліктер: ") + "; ".join(issues), 5)
         flagged = True
     if not confident:
         r.needs_master_check = True   # 6.3 п.4: при низкой уверенности — проверка мастером
     if not flagged:
-        r.add("photo", OK, f"Сравнение фото ИИ: {explanation}" if explanation else "Сравнение фото ИИ: замечаний нет")
+        r.add("photo", OK, T(f"Сравнение фото ИИ: {explanation}", f"ЖИ фото салыстыруы: {explanation}") if explanation else T("Сравнение фото ИИ: замечаний нет", "ЖИ фото салыстыруы: ескертулер жоқ"))
     if not rules_flagged_fraud:
         r.photo_score = llm["score"]
 
@@ -229,20 +232,20 @@ def build_reports(o: WorkOrder, r: ReviewResult) -> tuple[Verdict, int, str, str
     bad = [c.message for c in r.checks if c.level in (CRITICAL, REMARK)]
     good = [c.message for c in r.checks if c.level == OK]
     head = {
-        Verdict.accepted: "Наряд выполнен полностью и в срок.",
-        Verdict.accepted_with_remarks: "Наряд принят с замечаниями.",
-        Verdict.needs_rework: "Наряд требует доработки.",
+        Verdict.accepted: T("Наряд выполнен полностью и в срок.", "Наряд толық және мерзімінде орындалды."),
+        Verdict.accepted_with_remarks: T("Наряд принят с замечаниями.", "Наряд ескертулермен қабылданды."),
+        Verdict.needs_rework: T("Наряд требует доработки.", "Наряд қайта қарауды қажет етеді."),
     }[verdict]
-    explanation = head + (" Замечания: " + "; ".join(bad) + "." if bad else "")
+    explanation = head + (T(" Замечания: ", " Ескертулер: ") + "; ".join(bad) + "." if bad else "")
 
     minutes = work_minutes(o)
     time_line = ""
     if minutes is not None and o.fault_code:
-        time_line = f"\nВремя: {_fmt_minutes(minutes)} при нормативе {_fmt_minutes(o.fault_code.norm_hours * 60)}."
+        time_line = T(f"\nВремя: {_fmt_minutes(minutes)} при нормативе {_fmt_minutes(o.fault_code.norm_hours * 60)}.", f"\nУақыт: {_fmt_minutes(minutes)}, норматив {_fmt_minutes(o.fault_code.norm_hours * 60)}.")
     worker_report = (
-        f"Оценка: {score}/100 — {head}\n"
-        + ("Хорошо: " + "; ".join(good) + ".\n" if good else "")
-        + ("Улучшить: " + "; ".join(bad) + "." if bad else "Замечаний нет.")
+        f"{T('Оценка', 'Баға')}: {score}/100 — {head}\n"
+        + (T("Хорошо: ", "Жақсы: ") + "; ".join(good) + ".\n" if good else "")
+        + (T("Улучшить: ", "Жақсарту керек: ") + "; ".join(bad) + "." if bad else T("Замечаний нет.", "Ескертулер жоқ."))
         + time_line
     )
     return verdict, score, explanation, worker_report

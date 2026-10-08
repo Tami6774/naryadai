@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from ..i18n import T
 from ..models import AIAssessment, Employee, Equipment, Role, Status, WorkOrder
 from ..serializers import employee_out
 
@@ -15,12 +16,17 @@ QUEUE = {Status.issued, Status.queued, Status.accepted, Status.rework}
 SPECIALTY_KEYWORDS = {
     "Слесарь": ["течь", "масл", "подшипник", "редуктор", "насос", "лента", "ролик", "вибрац",
                 "шум", "муфт", "вал", "износ", "болт", "уплотн", "гидравл", "смазк", "шестерн",
-                "заклин", "футеровк", "натяж"],
+                "заклин", "футеровк", "натяж",
+                "май", "мойынтірек", "редуктор", "сорғы", "лента", "діріл", "тозу", "болт", "тығыздағыш"],
     "Электрик": ["электр", "двигател", "кабел", "автомат", "пускател", "датчик", "напряжен",
-                 "искр", "замыкан", "не запускается", "освещен", "щит", "обмотк", "кз", "фаз"],
+                 "искр", "замыкан", "не запускается", "освещен", "щит", "обмотк", "кз", "фаз",
+                 "қозғалтқыш", "кабель", "іске қосылмайды", "жарық", "қысқа тұйықталу", "кернеу", "ұшқын"],
     "Сварщик": ["свар", "трещин", "разрыв", "корпус", "рама", "металлоконструк", "прогар",
-                "шов", "лопнул"],
+                "шов", "лопнул", "дәнекер", "жарықшақ", "жарылды", "қаңқа"],
 }
+
+
+_SPEC_KZ = {"Слесарь": "слесарь", "Электрик": "электрик", "Сварщик": "дәнекерлеуші"}
 
 
 def guess_specialty(text: str) -> str | None:
@@ -47,17 +53,17 @@ def live_statuses(db: Session) -> dict[int, dict]:
         current = next((o for o in orders if o.status in BUSY), None)
         queue = [o for o in orders if o.status in QUEUE]
         if not w.on_shift:
-            state, label = "off", "Не на смене"
+            state, label = "off", T("Не на смене", "Ауысымда емес")
         elif current:
             state = "busy"
-            label = f"Выполняет наряд №{current.number}" + (
-                " (пауза)" if current.status == Status.paused else "")
+            label = T(f"Выполняет наряд №{current.number}", f"№{current.number} нарядты орындауда") + (
+                T(" (пауза)", " (үзіліс)") if current.status == Status.paused else "")
             if queue:
-                label += f", в очереди {len(queue)}"
+                label += T(f", в очереди {len(queue)}", f", кезекте {len(queue)}")
         elif queue:
-            state, label = "queue", f"В очереди {len(queue)} нарядов"
+            state, label = "queue", T(f"В очереди {len(queue)} нарядов", f"Кезекте {len(queue)} наряд")
         else:
-            state, label = "free", "Свободен"
+            state, label = "free", T("Свободен", "Бос")
         result[w.id] = {
             "state": state, "label": label,
             "current_order": {"id": current.id, "number": current.number} if current else None,
@@ -110,18 +116,19 @@ def suggest_assignees(db: Session, equipment_id: int, description: str,
         score = 0.0
         reasons = []
         if st["state"] == "free":
-            score += 50; reasons.append("свободен")
+            score += 50; reasons.append(T("свободен", "бос"))
         elif st["state"] == "queue":
-            score += 25 - 5 * st["queue_count"]; reasons.append(f"очередь {st['queue_count']}")
+            score += 25 - 5 * st["queue_count"]; reasons.append(T(f"очередь {st['queue_count']}", f"кезек {st['queue_count']}"))
         else:
-            score += 5; reasons.append("занят")
+            score += 5; reasons.append(T("занят", "бос емес"))
         if need and w.specialty == need:
-            score += 30; reasons.append(f"специальность: {w.specialty.lower()}")
+            score += 30; reasons.append(T(f"специальность: {w.specialty.lower()}", f"мамандығы: {_SPEC_KZ.get(w.specialty, w.specialty).lower()}"))
         elif need:
             score -= 20
         score += (avg - 70) * 0.5
         if scores and equipment:
-            reasons.append(f"ср. оценка по «{equipment.type}»: {avg:.0f} ({len(scores)} нарядов)")
+            reasons.append(T(f"ср. оценка по «{equipment.type}»: {avg:.0f} ({len(scores)} нарядов)",
+                             f"«{equipment.type}» бойынша орт. баға: {avg:.0f} ({len(scores)} наряд)"))
         candidates.append({
             **employee_out(w), "live": st, "match_score": round(score, 1),
             "reason": ", ".join(reasons),

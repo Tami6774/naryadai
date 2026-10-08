@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from ..auth import _bearer, current_user, decode_token, require_roles
 from ..config import MEDIA_DIR
 from ..db import get_db
+from ..i18n import T
 from ..models import (
     PRIORITY_ORDER,
     Employee,
@@ -42,13 +43,13 @@ def _load(db: Session, order_id: int, lock: bool = False) -> WorkOrder:
         stmt = stmt.with_for_update()
     o = db.scalar(stmt)
     if not o:
-        raise HTTPException(404, "Наряд не найден")
+        raise HTTPException(404, T("Наряд не найден", "Наряд табылмады"))
     return o
 
 
 def _check_access(o: WorkOrder, user: Employee) -> None:
     if user.role == Role.worker and o.assignee_id != user.id:
-        raise HTTPException(403, "Это не ваш наряд")
+        raise HTTPException(403, T("Это не ваш наряд", "Бұл сіздің наряд емес"))
 
 
 @router.get("")
@@ -134,10 +135,10 @@ def print_order(
     if not user_id and token:
         user_id = decode_token(token)
     if not user_id:
-        raise HTTPException(401, "Требуется авторизация")
+        raise HTTPException(401, T("Требуется авторизация", "Авторизация қажет"))
     user = db.get(Employee, user_id)
     if not user:
-        raise HTTPException(401, "Пользователь не найден")
+        raise HTTPException(401, T("Пользователь не найден", "Пайдаланушы табылмады"))
     o = _load(db, order_id)
     _check_access(o, user)
     html = generate_order_print_html(o)
@@ -192,19 +193,19 @@ async def upload_photo(
     o = _load(db, order_id)
     _check_access(o, user)
     if kind == PhotoKind.before and user.role == Role.worker:
-        raise HTTPException(403, "Фото неисправности добавляет мастер")
+        raise HTTPException(403, T("Фото неисправности добавляет мастер", "Ақау фотосын шебер қосады"))
     if sum(1 for p in o.photos if p.kind == kind) >= MAX_PHOTOS:
-        raise HTTPException(400, f"Не более {MAX_PHOTOS} фото")
+        raise HTTPException(400, T(f"Не более {MAX_PHOTOS} фото", f"{MAX_PHOTOS} фотодан артық емес"))
     
     # Потоковое чтение с защитой от переполнения памяти (OOM)
     data = bytearray()
     while chunk := await file.read(64 * 1024):
         data.extend(chunk)
         if len(data) > MAX_PHOTO_BYTES:
-            raise HTTPException(413, "Размер фотографии не должен превышать 10 МБ")
+            raise HTTPException(413, T("Размер фотографии не должен превышать 10 МБ", "Фотосуреттің өлшемі 10 МБ-тан аспауы керек"))
     
     if len(data) == 0:
-        raise HTTPException(400, "Файл изображения пуст")
+        raise HTTPException(400, T("Файл изображения пуст", "Сурет файлы бос"))
         
     raw_bytes = bytes(data)
     # Проверка magic bytes (JPEG / PNG / WEBP)
@@ -212,12 +213,12 @@ async def upload_photo(
     is_png = raw_bytes.startswith(b"\x89PNG\r\n\x1a\n")
     is_webp = raw_bytes.startswith(b"RIFF") and b"WEBP" in raw_bytes[:16]
     if not (is_jpeg or is_png or is_webp):
-        raise HTTPException(400, "Допустимы только форматы JPEG, PNG, WEBP")
+        raise HTTPException(400, T("Допустимы только форматы JPEG, PNG, WEBP", "Тек JPEG, PNG, WEBP форматтарына рұқсат етіледі"))
         
     try:
         rel_path, taken_at, phash = save_photo(raw_bytes, o.id)
     except Exception:
-        raise HTTPException(400, "Не удалось обработать изображение")
+        raise HTTPException(400, T("Не удалось обработать изображение", "Суретті өңдеу мүмкін болмады"))
     p = Photo(order_id=o.id, kind=kind, file_path=rel_path, taken_at=taken_at,
               author_id=user.id, phash=phash)
     db.add(p)
@@ -232,9 +233,9 @@ def delete_photo(order_id: int, photo_id: int, db: Session = Depends(get_db),
                  user: Employee = Depends(current_user)):
     p = db.get(Photo, photo_id)
     if not p or p.order_id != order_id:
-        raise HTTPException(404, "Фото не найдено")
+        raise HTTPException(404, T("Фото не найдено", "Фото табылмады"))
     if p.author_id != user.id and user.role not in (Role.master, Role.admin):
-        raise HTTPException(403, "Можно удалить только своё фото")
+        raise HTTPException(403, T("Можно удалить только своё фото", "Тек өз фотоңызды жоюға болады"))
     
     # Физическое удаление файла с диска для исключения накопления мусора
     if p.file_path:

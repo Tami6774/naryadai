@@ -22,6 +22,7 @@ from pathlib import Path
 import anthropic
 
 from ..config import MEDIA_DIR
+from ..i18n import is_kz
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +44,11 @@ def _client() -> anthropic.Anthropic:
     return anthropic.Anthropic(timeout=TIMEOUT_SEC, max_retries=1)
 
 
+# Тексты в ответе модели (explanation, missing, issues) — на языке интерфейса
+_LANG_NOTE = (" Ignore the instruction to answer in Russian: write every text field of the answer "
+              "(explanation, missing, issues) in Kazakh (қазақ тілінде).")
+
+
 def _call_json(system: str, content: list, schema: dict, max_tokens: int = 2000) -> dict | None:
     """Один запрос со структурированным ответом по JSON-схеме. None — модель недоступна/отказала."""
     try:
@@ -52,7 +58,7 @@ def _call_json(system: str, content: list, schema: dict, max_tokens: int = 2000)
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",            # отказ классификатора → рекомендованная резервная модель
             output_config={"effort": EFFORT, "format": {"type": "json_schema", "schema": schema}},
-            system=system,
+            system=system + _LANG_NOTE if is_kz() else system,
             messages=[{"role": "user", "content": content}],
         )
     except anthropic.APITimeoutError:

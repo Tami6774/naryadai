@@ -82,7 +82,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
           const pump = dicts.equipment.find((e: any) => e.section_id === enrichSec.id && e.name.includes('ГрАТ'));
           if (pump) {
             setEquipmentId(pump.id);
-            setDescription('Течь масла на насосе из-под уплотнения вала');
+            setDescription(tr('Течь масла на насосе из-под уплотнения вала', 'Сорғыдағы білік тығыздағышынан май ағып жатыр'));
           }
         }
       } catch (err: any) {
@@ -321,14 +321,14 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                 </button>
                 <button
                   type="button"
-                  onClick={() => setDescription('Течь масла на насосе из-под уплотнения')}
+                  onClick={() => setDescription(tr('Течь масла на насосе из-под уплотнения', 'Сорғыдағы тығыздағыштан май ағып жатыр'))}
                   className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-0.5 rounded text-slate-300"
                 >
                   {tr('Пресет: Течь масла', 'Пресет: Май ағуы')}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setDescription('Сильный нагрев и шум подшипникового узла')}
+                  onClick={() => setDescription(tr('Сильный нагрев и шум подшипникового узла', 'Мойынтірек торабы қатты қызып, шулап тұр'))}
                   className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-0.5 rounded text-slate-300"
                 >
                   {tr('Пресет: Подшипник', 'Пресет: Мойынтірек')}

@@ -30,6 +30,7 @@ from ..models import (
     WorkOrder,
     WorkOrderEvent,
 )
+from ..i18n import T
 from ..serializers import downtime_minutes, short_name
 
 
@@ -92,15 +93,20 @@ def detect_anomalies(db: Session, days: int = 90) -> dict:
                 "type": "equipment_frequency",
                 "severity": "critical",
                 "target": eq.name,
-                "title": f"Критическая аварийность: {eq.name}",
-                "text": (
+                "title": T(f"Критическая аварийность: {eq.name}", f"Күрделі апаттылық: {eq.name}"),
+                "text": T(
                     f"{eq.name} ({eq.section.name}): {cnt} внеплановых остановок за {days} дней "
                     f"(в {cnt / avg_unplanned:.1f} раза чаще среднего показателя по предприятию). "
-                    f"{top_fault_cnt} из них — шифр {top_fault}{fc_desc}."
+                    f"{top_fault_cnt} из них — шифр {top_fault}{fc_desc}.",
+                    f"{eq.name} ({eq.section.name}): {days} күнде {cnt} жоспардан тыс тоқтау "
+                    f"(кәсіпорын бойынша орташа көрсеткіштен {cnt / avg_unplanned:.1f} есе жиі). "
+                    f"Олардың {top_fault_cnt}-і — {top_fault} шифры{fc_desc}.",
                 ),
-                "recommendation": (
+                "recommendation": T(
                     f"Провести внеочередную вибродиагностику и проверку соосности привода {eq.name}. "
-                    f"Включить ревизию подшипниковых узлов в ближайший план ППР."
+                    f"Включить ревизию подшипниковых узлов в ближайший план ППР.",
+                    f"{eq.name} жетегіне кезектен тыс діріл диагностикасы мен центрлеуді тексеруді жүргізу. "
+                    f"Мойынтірек тораптарының ревизиясын таяудағы ЖЕЖ жоспарына енгізу.",
                 ),
             })
 
@@ -133,14 +139,18 @@ def detect_anomalies(db: Session, days: int = 90) -> dict:
                 "type": "post_ppr_quality",
                 "severity": "warning",
                 "target": eq.name,
-                "title": f"Повторные отказы после ППР: {eq.name}",
-                "text": (
+                "title": T(f"Повторные отказы после ППР: {eq.name}", f"ЖЕЖ-ден кейінгі қайталанатын істен шығулар: {eq.name}"),
+                "text": T(
                     f"По {eq.name} зафиксировано {len(fails)} внеплановых остановок в течение 2–5 дней "
-                    f"после завершения планового ТО. Это указывает на скрытые дефекты сборки либо неполный объём регламентных работ."
+                    f"после завершения планового ТО. Это указывает на скрытые дефекты сборки либо неполный объём регламентных работ.",
+                    f"{eq.name} бойынша жоспарлы ТҚ аяқталғаннан кейін 2–5 күн ішінде {len(fails)} жоспардан тыс тоқтау тіркелді. "
+                    f"Бұл құрастырудағы жасырын ақауларды немесе регламенттік жұмыстардың толық орындалмағанын көрсетеді.",
                 ),
-                "recommendation": (
+                "recommendation": T(
                     f"Усилить приёмку после ППР мастером смены: обязательный тест под нагрузкой "
-                    f"не менее 2 часов с тепловизионным контролем."
+                    f"не менее 2 часов с тепловизионным контролем.",
+                    f"ЖЕЖ-ден кейін ауысым шеберінің қабылдауын күшейту: тепловизорлық бақылаумен "
+                    f"кемінде 2 сағаттық жүктемемен міндетті сынақ.",
                 ),
             })
 
@@ -170,15 +180,20 @@ def detect_anomalies(db: Session, days: int = 90) -> dict:
                     "type": "worker_repeat_rate",
                     "severity": "warning",
                     "target": worker.full_name,
-                    "title": f"Высокая доля повторных отказов: {short_name(worker.full_name)}",
-                    "text": (
+                    "title": T(f"Высокая доля повторных отказов: {short_name(worker.full_name)}", f"Қайталанатын істен шығулардың жоғары үлесі: {short_name(worker.full_name)}"),
+                    "text": T(
                         f"У исполнителя {short_name(worker.full_name)} ({worker.specialty}, {worker.grade} разряд) "
                         f"{len(reps)} из {total_w} ремонтов ({len(reps) / total_w * 100:.0f}%) повлекли "
-                        f"повторную поломку того же шифра на оборудовании в течение 7 дней."
+                        f"повторную поломку того же шифра на оборудовании в течение 7 дней.",
+                        f"{short_name(worker.full_name)} орындаушысының ({worker.specialty}, {worker.grade} разряд) "
+                        f"{total_w} жөндеуінің {len(reps)}-і ({len(reps) / total_w * 100:.0f}%) жабдықта "
+                        f"7 күн ішінде сол шифрдағы қайталама бұзылуға әкелді.",
                     ),
-                    "recommendation": (
+                    "recommendation": T(
                         f"Направить сотрудника на наставничество к бригадиру смены, "
-                        f"ввести обязательную инструментальную проверку его нарядов мастером."
+                        f"ввести обязательную инструментальную проверку его нарядов мастером.",
+                        f"Қызметкерді ауысым бригадиріне тәлімгерлікке жіберу, "
+                        f"оның нарядтарын шебердің аспаптық тексеруін міндетті ету.",
                     ),
                 })
 
@@ -196,14 +211,18 @@ def detect_anomalies(db: Session, days: int = 90) -> dict:
                 "type": "shift_imbalance",
                 "severity": "warning",
                 "target": sec.name,
-                "title": f"Ночной всплеск аварийности: {sec.name}",
-                "text": (
+                "title": T(f"Ночной всплеск аварийности: {sec.name}", f"Түнгі апаттылық өсімі: {sec.name}"),
+                "text": T(
                     f"На участке «{sec.name}» в ночные смены зафиксировано {counts['night']} аварийных нарядов "
-                    f"против {counts['day']} в дневные (превышение в {counts['night'] / max(1, counts['day']):.1f} раза)."
+                    f"против {counts['day']} в дневные (превышение в {counts['night'] / max(1, counts['day']):.1f} раза).",
+                    f"«{sec.name}» бөлімшесінде түнгі ауысымдарда {counts['night']} апаттық наряд тіркелді, "
+                    f"күндізгі ауысымдарда — {counts['day']} ({counts['night'] / max(1, counts['day']):.1f} есе артық).",
                 ),
-                "recommendation": (
+                "recommendation": T(
                     f"Проверить соблюдение регламентов технологической загрузки агрегатов в ночное время, "
-                    f"усилить дежурную ремонтную смену электриком и слесарем."
+                    f"усилить дежурную ремонтную смену электриком и слесарем.",
+                    f"Түнде агрегаттарды технологиялық жүктеу регламенттерінің сақталуын тексеру, "
+                    f"кезекші жөндеу ауысымын электрик пен слесарьмен күшейту.",
                 ),
             })
 
@@ -232,28 +251,32 @@ def detect_anomalies(db: Session, days: int = 90) -> dict:
                     "type": "material_overuse",
                     "severity": "info",
                     "target": worker.full_name,
-                    "title": f"Систематический перерасход материалов: {short_name(worker.full_name)}",
-                    "text": (
+                    "title": T(f"Систематический перерасход материалов: {short_name(worker.full_name)}", f"Материалдардың жүйелі артық шығыны: {short_name(worker.full_name)}"),
+                    "text": T(
                         f"Исполнитель {short_name(worker.full_name)} в {stat['over_count']} нарядах списал ТМЦ "
-                        f"в среднем в {avg_over:.1f} раза выше нормы расхода по технологическим картам."
+                        f"в среднем в {avg_over:.1f} раза выше нормы расхода по технологическим картам.",
+                        f"{short_name(worker.full_name)} орындаушысы {stat['over_count']} нарядта ТМҚ-ны "
+                        f"технологиялық карталар бойынша шығын нормасынан орта есеппен {avg_over:.1f} есе артық есептен шығарды.",
                     ),
-                    "recommendation": (
+                    "recommendation": T(
                         f"Провести инвентаризацию списания запчастей, сопоставить фактически установленные "
-                        f"узлы с возвратным металлоломом на складе."
+                        f"узлы с возвратным металлоломом на складе.",
+                        f"Қосалқы бөлшектерді есептен шығаруға түгендеу жүргізу, нақты орнатылған "
+                        f"тораптарды қоймадағы қайтарылған металл сынықтарымен салыстыру.",
                     ),
                 })
 
     # ------------------------------------------------ 6. Прогноз вероятных отказов (бонус)
     forecast = forecast_failures(db)
     for f in [f for f in forecast if f["level"] == "high"][:2]:
-        when = ("в течение суток" if f["expected_in_days"] < 1
-                else f"в среднем через {f['expected_in_days']:.0f} сут")
+        when = (T("в течение суток", "тәулік ішінде") if f["expected_in_days"] < 1
+                else T(f"в среднем через {f['expected_in_days']:.0f} сут", f"орта есеппен {f['expected_in_days']:.0f} тәуліктен кейін"))
         insights.append({
             "type": "failure_forecast",
             "severity": "warning",
             "target": f["name"],
-            "title": f"Прогноз отказа: {f['name']}",
-            "text": f"{f['explanation']} Следующая остановка ожидается {when}.",
+            "title": T(f"Прогноз отказа: {f['name']}", f"Істен шығу болжамы: {f['name']}"),
+            "text": T(f"{f['explanation']} Следующая остановка ожидается {when}.", f"{f['explanation']} Келесі тоқтау {when} күтіледі."),
             "recommendation": f["recommendation"],
         })
 
@@ -354,9 +377,9 @@ def downtime_report(db: Session, start: datetime, end: datetime, section_id: int
         e[f"{kind}_hours"] += minutes / 60
         e[f"{kind}_count"] += 1
         if o.work_type == "unplanned":
-            code = o.fault_code.code if o.fault_code else "без шифра"
+            code = o.fault_code.code if o.fault_code else T("без шифра", "шифрсыз")
             e["causes"][code] = e["causes"].get(code, 0) + minutes / 60
-            f = by_fault.setdefault(code, {"code": code, "name": o.fault_code.name if o.fault_code else "Шифр не указан",
+            f = by_fault.setdefault(code, {"code": code, "name": o.fault_code.name if o.fault_code else T("Шифр не указан", "Шифр көрсетілмеген"),
                                            "hours": 0.0, "count": 0})
             f["hours"] += minutes / 60
             f["count"] += 1
@@ -451,9 +474,12 @@ def forecast_failures(db: Session, limit: int = 10) -> list[dict]:
         else:
             level = "low"
         days_since = (now - max(times)).total_seconds() / 86400
-        trend = (f"частота растёт быстрее парка: +{growth * 100:.0f}% против +{fleet_growth * 100:.0f}% "
-                 f"по парку (за 30 дн. — {recent}, ранее {rate_base * 30:.1f} в месяц)" if relative_growth > 0.1
-                 else f"частота меняется как по парку ({recent} за 30 дн.)")
+        trend = (T(f"частота растёт быстрее парка: +{growth * 100:.0f}% против +{fleet_growth * 100:.0f}% "
+                   f"по парку (за 30 дн. — {recent}, ранее {rate_base * 30:.1f} в месяц)",
+                   f"жиілік парктен жылдам өсуде: парк бойынша +{fleet_growth * 100:.0f}% қарсы +{growth * 100:.0f}% "
+                   f"(30 күнде — {recent}, бұрын айына {rate_base * 30:.1f})") if relative_growth > 0.1
+                 else T(f"частота меняется как по парку ({recent} за 30 дн.)",
+                        f"жиілік парк бойынша өзгереді (30 күнде {recent})"))
         out.append({
             "equipment_id": eq_id,
             "name": eq.name,
@@ -469,13 +495,18 @@ def forecast_failures(db: Session, limit: int = 10) -> list[dict]:
             "expected_in_days": round(1 / rate, 1),
             "days_since_last": round(days_since, 1),
             "level": level,
-            "explanation": (f"Вероятность отказа в ближайшие {FORECAST_HORIZON_DAYS} дней — {probability * 100:.0f}%: "
-                            f"{rate * 30:.1f} внеплановых остановок в месяц, в {ratio:.1f} раза чаще среднего по парку; "
-                            f"{trend}."),
-            "recommendation": ("Включить в ближайший план ППР: диагностика узлов по частым шифрам отказов, "
-                               "подготовить запчасти заранее." if level == "high"
-                               else "Усилить осмотры при обходах смены." if level == "medium"
-                               else "Обслуживание по графику ППР."),
+            "explanation": T(f"Вероятность отказа в ближайшие {FORECAST_HORIZON_DAYS} дней — {probability * 100:.0f}%: "
+                             f"{rate * 30:.1f} внеплановых остановок в месяц, в {ratio:.1f} раза чаще среднего по парку; "
+                             f"{trend}.",
+                             f"Таяу {FORECAST_HORIZON_DAYS} күнде істен шығу ықтималдығы — {probability * 100:.0f}%: "
+                             f"айына {rate * 30:.1f} жоспардан тыс тоқтау, парк бойынша орташадан {ratio:.1f} есе жиі; "
+                             f"{trend}."),
+            "recommendation": (T("Включить в ближайший план ППР: диагностика узлов по частым шифрам отказов, "
+                                 "подготовить запчасти заранее.",
+                                 "Таяудағы ЖЕЖ жоспарына енгізу: істен шығудың жиі шифрлары бойынша тораптарды диагностикалау, "
+                                 "қосалқы бөлшектерді алдын ала дайындау.") if level == "high"
+                               else T("Усилить осмотры при обходах смены.", "Ауысымды аралағанда тексеруді күшейту.") if level == "medium"
+                               else T("Обслуживание по графику ППР.", "ЖЕЖ кестесі бойынша қызмет көрсету.")),
         })
     rank = {"high": 0, "medium": 1, "low": 2}
     out.sort(key=lambda x: (rank[x["level"]], -x["probability_7d"]))
