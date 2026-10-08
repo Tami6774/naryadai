@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from .auth import decode_token
 from .config import BASE_DIR, CORS_ORIGINS, DEMO_MODE, MEDIA_DIR
 from .db import Base, engine
+from .i18n import set_lang
 from .netinfo import phone_urls, qr_svg
 from .realtime import manager
 from .routers import core, orders
@@ -48,6 +49,12 @@ app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials
 app.include_router(core.router)
 app.include_router(orders.router)
 app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
+
+@app.middleware("http")
+async def language_middleware(request: Request, call_next):
+    """Язык серверных текстов: заголовок X-Lang или ?lang= (для ссылок на печать/Excel)."""
+    set_lang(request.headers.get("x-lang") or request.query_params.get("lang"))
+    return await call_next(request)
 
 
 @app.get("/api/health")

@@ -121,6 +121,7 @@ async function errorFromResponse(res: Response, fallback: string): Promise<ApiEr
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
+    'X-Lang': tl('ru', 'kz'),
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
@@ -162,7 +163,7 @@ function reportQuery(params: ReportParams): string {
 async function downloadFile(endpoint: string, baseName: string, errorText: string): Promise<void> {
   const token = getToken();
   const res = await fetch(getFullApiUrl(endpoint), {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: { 'X-Lang': tl('ru', 'kz'), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
   if (!res.ok) throw await errorFromResponse(res, errorText);
   const blob = await res.blob();
@@ -324,7 +325,7 @@ export const api = {
     }),
   getOrderPrintUrl: (orderId: number) => {
     const token = getToken();
-    return `${getFullApiUrl(`/orders/${orderId}/print`)}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    return `${getFullApiUrl(`/orders/${orderId}/print`)}?lang=${tl('ru', 'kz')}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
   },
 
   // Excel Downloads (период и фильтры — как у отчёта на экране)
