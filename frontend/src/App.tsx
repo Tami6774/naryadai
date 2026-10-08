@@ -10,14 +10,14 @@ import { RatingShiftView } from './pages/RatingShiftView';
 import { ServerOfflineScreen } from './components/ServerOfflineScreen';
 
 export const AppContent: React.FC = () => {
-  const { user, loading, serverConnected, recheckServer, forceOffline, setForceOffline } = useAuth();
+  const { user, loading, serverConnected, recheckServer, forceOffline, setForceOffline, tr } = useAuth();
   const [currentTab, setCurrentTab] = useState<'master' | 'analytics' | 'rating'>('master');
 
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-emerald-400 font-bold text-sm animate-pulse">
-          Загрузка «НарядAI»...
+          {tr('Загрузка «НарядAI»...', '«НарядAI» жүктелуде...')}
         </div>
       </div>
     );
@@ -54,7 +54,7 @@ export const AppContent: React.FC = () => {
       </main>
 
       <footer className="py-3 text-center text-[11px] text-slate-600 border-t border-slate-800">
-        «НарядAI» © 2026 АО «Костанайские Минералы» • Qostanai AI Industry Hackathon
+        «НарядAI» © 2026 {tr('АО «Костанайские Минералы»', '«Қостанай минералдары» АҚ')} • Qostanai AI Industry Hackathon
       </footer>
     </div>
   );

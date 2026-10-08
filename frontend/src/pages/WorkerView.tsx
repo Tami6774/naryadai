@@ -39,7 +39,8 @@ export function workerEventRelevance(
 }
 
 export const WorkerView: React.FC = () => {
-  const { user, lastEvent, offlineCount, offlineQueue, syncOfflineNow, retryOffline, discardOffline } = useAuth();
+  const { user, lastEvent, offlineCount, offlineQueue, syncOfflineNow, retryOffline, discardOffline, tr, ts, lang } = useAuth();
+  const locale = lang === 'kz' ? 'kk-KZ' : 'ru-RU';
   const problemActions = offlineQueue.filter(a => a.status === 'conflict' || a.status === 'failed');
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [ratingData, setRatingData] = useState<any>(null);
@@ -104,7 +105,7 @@ export const WorkerView: React.FC = () => {
       setPauseReasonModal(null);
       setReasonInput('');
       if (res?.__offline) {
-        setOfflineNotice('Действие сохранено офлайн и будет передано при восстановлении связи');
+        setOfflineNotice(tr('Действие сохранено офлайн и будет передано при восстановлении связи', 'Әрекет офлайн сақталды және байланыс қалпына келгенде жіберіледі'));
         if (res.status) {
           setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: res.status } : o));
         }
@@ -112,7 +113,7 @@ export const WorkerView: React.FC = () => {
         await fetchWorkerData();
       }
     } catch (err: any) {
-      alert(err.message || 'Ошибка выполнения действия');
+      alert(err.message || tr('Ошибка выполнения действия', 'Әрекетті орындау қатесі'));
     } finally {
       setActionLoading(false);
     }
@@ -145,7 +146,7 @@ export const WorkerView: React.FC = () => {
             <span>{user?.full_name}</span>
           </h2>
           <p className="text-xs text-slate-400">
-            {user?.specialty}, {user?.grade} разряд • {user?.brigade?.name || 'Бригада №1'}
+            {ts(user?.specialty)}, {user?.grade} {tr('разряд', 'разряд')} • {user?.brigade?.name || tr('Бригада №1', '№1 бригада')}
           </p>
         </div>
 
@@ -157,7 +158,7 @@ export const WorkerView: React.FC = () => {
               activeTab === 'orders' ? 'bg-emerald-600 text-white' : 'text-slate-400'
             }`}
           >
-            Наряды
+            {tr('Наряды', 'Нарядтар')}
           </button>
           <button
             onClick={() => setActiveTab('rating')}
@@ -166,7 +167,7 @@ export const WorkerView: React.FC = () => {
             }`}
           >
             <Award size={14} />
-            <span>Рейтинг</span>
+            <span>{tr('Рейтинг', 'Рейтинг')}</span>
           </button>
         </div>
       </div>
@@ -193,7 +194,7 @@ export const WorkerView: React.FC = () => {
               <div className="flex items-center space-x-2 text-amber-200">
                 <span className="text-base">📴</span>
                 <div>
-                  <span className="font-bold">Офлайн-режим:</span> сохранено {offlineCount} действий в памяти устройства.
+                  <span className="font-bold">{tr('Офлайн-режим:', 'Офлайн-режим:')}</span> {tr('сохранено', 'құрылғы жадында')} {offlineCount} {tr('действий в памяти устройства.', 'әрекет сақталды.')}
                 </div>
               </div>
               <button
@@ -206,7 +207,7 @@ export const WorkerView: React.FC = () => {
                 }}
                 className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition shadow text-xs"
               >
-                Синхронизировать
+                {tr('Синхронизировать', 'Синхрондау')}
               </button>
             </div>
           )}
@@ -216,11 +217,11 @@ export const WorkerView: React.FC = () => {
             <div key={a.id} className="bg-red-950/60 border border-red-700 p-3 rounded-2xl shadow text-xs space-y-2">
               <div className="text-red-200">
                 <span className="font-bold">
-                  {a.status === 'conflict' ? 'Конфликт' : 'Ошибка'} синхронизации
-                  {a.orderNumber ? ` · наряд №${a.orderNumber}` : ''}:
+                  {a.status === 'conflict' ? tr('Конфликт', 'Қақтығыс') : tr('Ошибка', 'Қате')} {tr('синхронизации', 'синхрондау')}
+                  {a.orderNumber ? ` · ${tr('наряд', 'наряд')} №${a.orderNumber}` : ''}:
                 </span>{' '}
-                действие «{a.action}» от {new Date(a.createdAt).toLocaleString('ru-RU')}
-                {a.photos?.length ? ` (+${a.photos.length} фото)` : ''}.
+                {tr('действие', 'әрекет')} «{a.action}» {tr('от', '')} {new Date(a.createdAt).toLocaleString(locale)}
+                {a.photos?.length ? ` (+${a.photos.length} ${tr('фото', 'фото')})` : ''}.
                 {a.errorMessage && <div className="text-red-300 mt-1">{a.errorMessage}</div>}
               </div>
               <div className="flex space-x-2">
@@ -229,18 +230,18 @@ export const WorkerView: React.FC = () => {
                   onClick={() => retryOffline(a.id)}
                   className="min-h-[48px] flex-1 px-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition"
                 >
-                  Повторить
+                  {tr('Повторить', 'Қайталау')}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    if (confirm('Удалить сохранённое действие? Данные (включая фото) будут потеряны.')) {
+                    if (confirm(tr('Удалить сохранённое действие? Данные (включая фото) будут потеряны.', 'Сақталған әрекетті жою керек пе? Деректер (фотосуреттерді қоса) жоғалады.'))) {
                       discardOffline(a.id);
                     }
                   }}
                   className="min-h-[48px] flex-1 px-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition"
                 >
-                  Удалить
+                  {tr('Удалить', 'Жою')}
                 </button>
               </div>
             </div>
@@ -259,21 +260,21 @@ export const WorkerView: React.FC = () => {
                 <div>
                   <div className="flex items-center space-x-2">
                     <span className="font-mono text-xs font-black text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
-                      НАРЯД #{currentOrder.number}
+                      {tr('НАРЯД', 'НАРЯД')} #{currentOrder.number}
                     </span>
                     <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
                       currentOrder.priority === 'emergency' ? 'bg-red-600 text-white animate-pulse' :
                       'bg-slate-700 text-slate-300'
                     }`}>
-                      {currentOrder.priority_label}
+                      {ts(currentOrder.priority_label)}
                     </span>
                   </div>
                   <h3 className="font-bold text-base text-white mt-1.5">{currentOrder.equipment.name}</h3>
-                  <p className="text-xs text-slate-400">{currentOrder.section.name}</p>
+                  <p className="text-xs text-slate-400">{ts(currentOrder.section.name)}</p>
                 </div>
 
                 <span className="px-3 py-1 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-emerald-400">
-                  {currentOrder.status_label}
+                  {ts(currentOrder.status_label)}
                 </span>
               </div>
 
@@ -282,15 +283,15 @@ export const WorkerView: React.FC = () => {
                 <div className="p-3 bg-red-950/80 border border-red-700 text-red-200 text-xs rounded-xl flex items-start space-x-2">
                   <AlertTriangle size={18} className="shrink-0 mt-0.5" />
                   <div>
-                    <strong className="block text-red-100 font-bold mb-0.5">Требует доработки по заключению ИИ:</strong>
-                    <span>{currentOrder.assessment?.explanation || 'Устраните замечания и повторно отправьте наряд'}</span>
+                    <strong className="block text-red-100 font-bold mb-0.5">{tr('Требует доработки по заключению ИИ:', 'ЖИ қорытындысы бойынша қайта қарауды қажет етеді:')}</strong>
+                    <span>{currentOrder.assessment?.explanation || tr('Устраните замечания и повторно отправьте наряд', 'Ескертулерді жойып, нарядты қайта жіберіңіз')}</span>
                   </div>
                 </div>
               )}
 
               {/* Описание проблемы */}
               <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-700/80 text-xs text-slate-200 leading-relaxed">
-                <span className="text-slate-400 font-semibold block mb-0.5">Задача:</span>
+                <span className="text-slate-400 font-semibold block mb-0.5">{tr('Задача:', 'Тапсырма:')}</span>
                 {currentOrder.description}
               </div>
 
@@ -298,11 +299,11 @@ export const WorkerView: React.FC = () => {
               <div className="flex items-center justify-between text-xs text-slate-400 px-1">
                 <span className="flex items-center space-x-1.5">
                   <Clock size={15} />
-                  <span>Срок до: <strong>{new Date(currentOrder.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                  <span>{tr('Срок до:', 'Мерзімі:')} <strong>{new Date(currentOrder.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
                 </span>
                 {currentOrder.overdue && (
                   <span className="font-bold text-red-400 animate-pulse">
-                    ⚠ Просрочен на {currentOrder.overdue_minutes} мин!
+                    ⚠ {tr('Просрочен на', 'Мерзімі өтті:')} {currentOrder.overdue_minutes} {tr('мин!', 'мин!')}
                   </span>
                 )}
               </div>
@@ -319,7 +320,7 @@ export const WorkerView: React.FC = () => {
                       className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-xl shadow-lg shadow-emerald-950 transition flex items-center justify-center space-x-2 btn-touch"
                     >
                       <CheckCircle size={20} />
-                      <span>Принять в работу</span>
+                      <span>{tr('Принять в работу', 'Жұмысқа қабылдау')}</span>
                     </button>
 
                     <div className="grid grid-cols-2 gap-2">
@@ -329,7 +330,7 @@ export const WorkerView: React.FC = () => {
                         className="py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 btn-touch"
                       >
                         <ListPlus size={16} />
-                        <span>Поставить в очередь</span>
+                        <span>{tr('Поставить в очередь', 'Кезекке қою')}</span>
                       </button>
 
                       <button
@@ -338,7 +339,7 @@ export const WorkerView: React.FC = () => {
                         className="py-3 bg-slate-700 hover:bg-red-900/80 text-slate-200 hover:text-red-200 font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 btn-touch"
                       >
                         <XCircle size={16} />
-                        <span>Отклонить...</span>
+                        <span>{tr('Отклонить...', 'Бас тарту...')}</span>
                       </button>
                     </div>
                   </div>
@@ -352,7 +353,7 @@ export const WorkerView: React.FC = () => {
                     className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-xl shadow-lg shadow-emerald-950 transition flex items-center justify-center space-x-2 btn-touch"
                   >
                     <Play size={20} />
-                    <span>Начать исполнение</span>
+                    <span>{tr('Начать исполнение', 'Орындауды бастау')}</span>
                   </button>
                 )}
 
@@ -364,7 +365,7 @@ export const WorkerView: React.FC = () => {
                       className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-xl shadow-lg shadow-emerald-950 transition flex items-center justify-center space-x-2 btn-touch"
                     >
                       <CheckCircle size={22} />
-                      <span>Исполнено (закрыть наряд)</span>
+                      <span>{tr('Исполнено (закрыть наряд)', 'Орындалды (нарядты жабу)')}</span>
                     </button>
 
                     <button
@@ -373,7 +374,7 @@ export const WorkerView: React.FC = () => {
                       className="w-full py-3 bg-amber-700 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 btn-touch"
                     >
                       <Pause size={16} />
-                      <span>Приостановить смену/работу</span>
+                      <span>{tr('Приостановить смену/работу', 'Жұмысты тоқтата тұру')}</span>
                     </button>
                   </div>
                 )}
@@ -386,7 +387,7 @@ export const WorkerView: React.FC = () => {
                     className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-base rounded-xl shadow-lg shadow-blue-950 transition flex items-center justify-center space-x-2 btn-touch"
                   >
                     <Play size={22} />
-                    <span>Возобновить выполнение</span>
+                    <span>{tr('Возобновить выполнение', 'Жұмысты жалғастыру')}</span>
                   </button>
                 )}
 
@@ -398,9 +399,9 @@ export const WorkerView: React.FC = () => {
               <div className="w-12 h-12 bg-emerald-950 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-800">
                 <CheckCircle size={24} />
               </div>
-              <h3 className="font-bold text-base text-white">Вы свободны</h3>
+              <h3 className="font-bold text-base text-white">{tr('Вы свободны', 'Сіз бос')}</h3>
               <p className="text-xs text-slate-400">
-                Новые аварийные и плановые наряды от мастера поступят мгновенно по сети.
+                {tr('Новые аварийные и плановые наряды от мастера поступят мгновенно по сети.', 'Шебердің жаңа апаттық және жоспарлы нарядтары желі арқылы бірден келеді.')}
               </p>
             </div>
           )}
@@ -411,9 +412,9 @@ export const WorkerView: React.FC = () => {
               <h4 className="font-bold text-sm text-slate-200 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <ShieldAlert size={16} className="text-amber-400" />
-                  <span>Входящие наряды ({otherIncomingOrders.length})</span>
+                  <span>{tr('Входящие наряды', 'Кіріс нарядтар')} ({otherIncomingOrders.length})</span>
                 </div>
-                <span className="text-[10px] text-slate-400">Требуют внимания</span>
+                <span className="text-[10px] text-slate-400">{tr('Требуют внимания', 'Назар аударуды қажет етеді')}</span>
               </h4>
               <div className="space-y-2.5">
                 {otherIncomingOrders.map(inc => (
@@ -432,9 +433,9 @@ export const WorkerView: React.FC = () => {
                           <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
                             inc.priority === 'emergency' ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-700 text-slate-300'
                           }`}>
-                            {inc.priority_label}
+                            {ts(inc.priority_label)}
                           </span>
-                          <span className="text-[10px] text-slate-400">{inc.status_label}</span>
+                          <span className="text-[10px] text-slate-400">{ts(inc.status_label)}</span>
                         </div>
                         <strong className="text-white text-xs block mt-1">{inc.equipment.name}</strong>
                         <p className="text-slate-300 text-xs mt-0.5">{inc.description}</p>
@@ -450,21 +451,21 @@ export const WorkerView: React.FC = () => {
                             disabled={actionLoading}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition btn-touch"
                           >
-                            Принять
+                            {tr('Принять', 'Қабылдау')}
                           </button>
                           <button
                             onClick={() => handleAction(inc.id, 'queue')}
                             disabled={actionLoading}
                             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition btn-touch"
                           >
-                            В очередь
+                            {tr('В очередь', 'Кезекке')}
                           </button>
                           <button
                             onClick={() => setRejectReasonModal(inc.id)}
                             disabled={actionLoading}
                             className="px-2.5 py-1.5 bg-slate-700 hover:bg-red-900/80 text-slate-300 hover:text-white text-xs font-semibold rounded-lg transition btn-touch"
                           >
-                            Отклонить
+                            {tr('Отклонить', 'Бас тарту')}
                           </button>
                         </>
                       ) : (
@@ -473,7 +474,7 @@ export const WorkerView: React.FC = () => {
                           disabled={actionLoading}
                           className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition btn-touch"
                         >
-                          Начать исполнение
+                          {tr('Начать исполнение', 'Орындауды бастау')}
                         </button>
                       )}
                     </div>
@@ -488,7 +489,7 @@ export const WorkerView: React.FC = () => {
             <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow space-y-3">
               <h4 className="font-bold text-sm text-slate-200 flex items-center space-x-2">
                 <ListPlus size={16} className="text-blue-400" />
-                <span>Ваша очередь нарядов ({queuedOrders.length})</span>
+                <span>{tr('Ваша очередь нарядов', 'Сіздің наряд кезегіңіз')} ({queuedOrders.length})</span>
               </h4>
               <div className="space-y-2">
                 {queuedOrders.map(q => (
@@ -502,7 +503,7 @@ export const WorkerView: React.FC = () => {
                       onClick={() => handleAction(q.id, 'start')}
                       className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shrink-0"
                     >
-                      Взять
+                      {tr('Взять', 'Алу')}
                     </button>
                   </div>
                 ))}
@@ -514,7 +515,7 @@ export const WorkerView: React.FC = () => {
           {completedOrders.length > 0 && (
             <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow space-y-3">
               <h4 className="font-bold text-sm text-slate-200">
-                Недавно выполненные наряды
+                {tr('Недавно выполненные наряды', 'Жақында орындалған нарядтар')}
               </h4>
               <div className="divide-y divide-slate-700/60">
                 {completedOrders.slice(0, 5).map(o => (
@@ -528,7 +529,7 @@ export const WorkerView: React.FC = () => {
                         <span className="font-mono font-bold text-emerald-400">#{o.number}</span>
                         <strong className="text-slate-200">{o.equipment.name}</strong>
                       </div>
-                      <span className="text-[11px] text-slate-400">{o.status_label}</span>
+                      <span className="text-[11px] text-slate-400">{ts(o.status_label)}</span>
                     </div>
 
                     <div className="flex items-center space-x-2">
@@ -550,25 +551,25 @@ export const WorkerView: React.FC = () => {
         <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl space-y-5">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="font-bold text-base text-white">Ваш рейтинг качества</h3>
-              <p className="text-xs text-slate-400">Расчёт по прозрачной формуле за 30 дней</p>
+              <h3 className="font-bold text-base text-white">{tr('Ваш рейтинг качества', 'Сіздің сапа рейтингіңіз')}</h3>
+              <p className="text-xs text-slate-400">{tr('Расчёт по прозрачной формуле за 30 дней', '30 күндегі ашық формула бойынша есептеу')}</p>
             </div>
             {myRating && (
               <div className="text-right">
                 <span className="text-3xl font-black text-emerald-400">{myRating.rating}</span>
-                <span className="text-xs text-slate-400 block font-semibold">Место в смене: #{myRating.place}</span>
+                <span className="text-xs text-slate-400 block font-semibold">{tr('Место в смене:', 'Ауысымдағы орны:')} #{myRating.place}</span>
               </div>
             )}
           </div>
 
           {myRating?.components && (
             <div className="space-y-3 pt-2">
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Составляющие балла:</h4>
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">{tr('Составляющие балла:', 'Балл құраушылары:')}</h4>
               
               <div className="space-y-2 text-xs">
                 <div>
                   <div className="flex justify-between text-slate-300 mb-1">
-                    <span>Качество работ (оценка ИИ / мастера):</span>
+                    <span>{tr('Качество работ (оценка ИИ / мастера):', 'Жұмыс сапасы (ЖИ / шебер бағасы):')}</span>
                     <strong className="text-emerald-400">{myRating.components.quality} / 100</strong>
                   </div>
                   <div className="w-full bg-slate-900 rounded-full h-2">
@@ -578,7 +579,7 @@ export const WorkerView: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between text-slate-300 mb-1">
-                    <span>Соблюдение сроков (выполнено вовремя):</span>
+                    <span>{tr('Соблюдение сроков (выполнено вовремя):', 'Мерзімді сақтау (уақтылы орындалған):')}</span>
                     <strong className="text-emerald-400">{myRating.components.on_time} / 100</strong>
                   </div>
                   <div className="w-full bg-slate-900 rounded-full h-2">
@@ -588,7 +589,7 @@ export const WorkerView: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between text-slate-300 mb-1">
-                    <span>Надёжность (без доработок и повторов за 7 дней):</span>
+                    <span>{tr('Надёжность (без доработок и повторов за 7 дней):', 'Сенімділік (7 күнде қайта қарау мен қайталаусыз):')}</span>
                     <strong className="text-emerald-400">{myRating.components.no_rework} / 100</strong>
                   </div>
                   <div className="w-full bg-slate-900 rounded-full h-2">
@@ -616,7 +617,7 @@ export const WorkerView: React.FC = () => {
             const id = closingOrder.id;
             setClosingOrder(null);
             if (offline) {
-              setOfflineNotice('Закрытие наряда и фото сохранены офлайн и будут переданы при восстановлении связи');
+              setOfflineNotice(tr('Закрытие наряда и фото сохранены офлайн и будут переданы при восстановлении связи', 'Нарядты жабу және фотосуреттер офлайн сақталды және байланыс қалпына келгенде жіберіледі'));
               setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'done' } : o));
             } else {
               fetchWorkerData();
@@ -638,9 +639,9 @@ export const WorkerView: React.FC = () => {
       {rejectReasonModal && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <div className="bg-slate-800 border border-slate-700 p-5 rounded-2xl max-w-sm w-full space-y-4">
-            <h4 className="font-bold text-sm text-white">Причина отклонения наряда</h4>
+            <h4 className="font-bold text-sm text-white">{tr('Причина отклонения наряда', 'Нарядтан бас тарту себебі')}</h4>
             <div className="space-y-1.5">
-              {['Нет материалов', 'Нет допуска', 'Занят аварийным нарядом', 'Не моя специальность'].map(r => (
+              {([['Нет материалов', 'Материал жоқ'], ['Нет допуска', 'Рұқсат жоқ'], ['Занят аварийным нарядом', 'Апаттық нарядпен айналысып жатыр'], ['Не моя специальность', 'Менің мамандығым емес']] as const).map(([r, rKz]) => (
                 <button
                   key={r}
                   type="button"
@@ -649,7 +650,7 @@ export const WorkerView: React.FC = () => {
                     reasonInput === r ? 'bg-emerald-950 border-emerald-500 text-emerald-200' : 'bg-slate-900 border-slate-700 text-slate-300'
                   }`}
                 >
-                  {r}
+                  {lang === 'kz' ? rKz : r}
                 </button>
               ))}
             </div>
@@ -658,14 +659,14 @@ export const WorkerView: React.FC = () => {
                 onClick={() => setRejectReasonModal(null)}
                 className="px-3 py-1.5 text-xs text-slate-400"
               >
-                Отмена
+                {tr('Отмена', 'Бас тарту')}
               </button>
               <button
                 onClick={() => handleAction(rejectReasonModal, 'reject', reasonInput)}
                 disabled={!reasonInput}
                 className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl disabled:opacity-50"
               >
-                Отклонить наряд
+                {tr('Отклонить наряд', 'Нарядтан бас тарту')}
               </button>
             </div>
           </div>
@@ -676,9 +677,9 @@ export const WorkerView: React.FC = () => {
       {pauseReasonModal && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <div className="bg-slate-800 border border-slate-700 p-5 rounded-2xl max-w-sm w-full space-y-4">
-            <h4 className="font-bold text-sm text-white">Причина приостановки</h4>
+            <h4 className="font-bold text-sm text-white">{tr('Причина приостановки', 'Тоқтата тұру себебі')}</h4>
             <div className="space-y-1.5">
-              {['Ждёт запчасти со склада', 'Ждёт остановки оборудования', 'Обед / перерыв', 'Переключён на аварийный'].map(r => (
+              {([['Ждёт запчасти со склада', 'Қоймадан қосалқы бөлшектерді күтуде'], ['Ждёт остановки оборудования', 'Жабдықтың тоқтауын күтуде'], ['Обед / перерыв', 'Түскі ас / үзіліс'], ['Переключён на аварийный', 'Апаттық нарядқа ауыстырылды']] as const).map(([r, rKz]) => (
                 <button
                   key={r}
                   type="button"
@@ -687,7 +688,7 @@ export const WorkerView: React.FC = () => {
                     reasonInput === r ? 'bg-amber-950 border-amber-500 text-amber-200' : 'bg-slate-900 border-slate-700 text-slate-300'
                   }`}
                 >
-                  {r}
+                  {lang === 'kz' ? rKz : r}
                 </button>
               ))}
             </div>
@@ -696,14 +697,14 @@ export const WorkerView: React.FC = () => {
                 onClick={() => setPauseReasonModal(null)}
                 className="px-3 py-1.5 text-xs text-slate-400"
               >
-                Отмена
+                {tr('Отмена', 'Бас тарту')}
               </button>
               <button
                 onClick={() => handleAction(pauseReasonModal, 'pause', reasonInput)}
                 disabled={!reasonInput}
                 className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl disabled:opacity-50"
               >
-                Приостановить
+                {tr('Приостановить', 'Тоқтата тұру')}
               </button>
             </div>
           </div>

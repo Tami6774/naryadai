@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { api } from '../api';
 import { AssistantResponse } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { useVoiceInput } from '../utils/useVoice';
 import { 
   X, Sparkles, Send, Mic, MicOff, Users, Clock, AlertTriangle, 
@@ -21,13 +22,14 @@ interface ChatMessage {
 }
 
 export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onClose, onSelectOrder }) => {
+  const { tr, ts, lang } = useAuth();
   const [inputQuery, setInputQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
       sender: 'assistant',
-      text: 'Здравствуйте! Я автономный ИИ-ассистент мастера «НарядAI». Задайте мне вопрос текстом или голосом — я проанализирую текущую смену, статусы слесарей и электриков, просрочки и оборудование.',
+      text: tr('Здравствуйте! Я автономный ИИ-ассистент мастера «НарядAI». Задайте мне вопрос текстом или голосом — я проанализирую текущую смену, статусы слесарей и электриков, просрочки и оборудование.', 'Сәлеметсіз бе! Мен «НарядAI» шебері үшін автономды ЖИ-көмекшімін. Маған мәтінмен немесе дауыспен сұрақ қойыңыз — мен ағымдағы ауысымды, слесарьлер мен электриктердің мәртебелерін, мерзімнің өтуін және жабдықты талдаймын.'),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }
   ]);
@@ -78,7 +80,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
       const errorMsg: ChatMessage = {
         id: 'error-' + Date.now(),
         sender: 'assistant',
-        text: '❌ Не удалось получить ответ: ' + (err.message || 'Ошибка связи с сервером'),
+        text: tr('❌ Не удалось получить ответ: ', '❌ Жауап алу мүмкін болмады: ') + (err.message || tr('Ошибка связи с сервером', 'Сервермен байланыс қатесі')),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -87,13 +89,14 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
     }
   };
 
-  const samplePrompts = [
-    'Кто сейчас свободен из электриков?',
-    'Кто сейчас свободен из слесарей?',
-    'Что просрочено на смене?',
-    'Сводка по смене',
-    'Топ проблемного оборудования',
-    'Сформируй отчёт по участку дробления',
+  // Запрос уходит на сервер по-русски (правила разбора фраз), подпись кнопки — на языке интерфейса
+  const samplePrompts: Array<[string, string]> = [
+    ['Кто сейчас свободен из электриков?', 'Электриктерден қазір кім бос?'],
+    ['Кто сейчас свободен из слесарей?', 'Слесарьлерден қазір кім бос?'],
+    ['Что просрочено на смене?', 'Ауысымда не мерзімінен өтті?'],
+    ['Сводка по смене', 'Ауысым қорытындысы'],
+    ['Топ проблемного оборудования', 'Мәселелі жабдықтың топ-тізімі'],
+    ['Сформируй отчёт по участку дробления', 'Ұсақтау бөлімшесі бойынша есеп жаса'],
   ];
 
   return (
@@ -108,13 +111,13 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="font-bold text-base text-white">ИИ-Ассистент мастера смены</h3>
+                <h3 className="font-bold text-base text-white">{tr('ИИ-Ассистент мастера смены', 'Ауысым шебері ЖИ-көмекшісі')}</h3>
                 <span className="text-[10px] uppercase font-bold bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-800">
                   On-Premise NLP
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Раздел 6.7 кейса • Голосовой и текстовый диалог со сменными данными
+                {tr('Раздел 6.7 кейса • Голосовой и текстовый диалог со сменными данными', 'Кейстің 6.7-бөлімі • Ауысым деректерімен дауыстық және мәтіндік диалог')}
               </p>
             </div>
           </div>
@@ -131,15 +134,15 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
           <div className="flex items-center space-x-2 text-xs">
             <span className="text-slate-400 font-semibold flex items-center space-x-1 shrink-0">
               <Sparkles size={13} className="text-emerald-400" />
-              <span>Примеры:</span>
+              <span>{tr('Примеры:', 'Мысалдар:')}</span>
             </span>
-            {samplePrompts.map((p, idx) => (
+            {samplePrompts.map(([p, pKz], idx) => (
               <button
                 key={idx}
                 onClick={() => handleSend(p)}
                 className="shrink-0 px-2.5 py-1 bg-slate-850 hover:bg-emerald-950/40 text-slate-300 hover:text-emerald-300 border border-slate-700/80 hover:border-emerald-700 rounded-lg transition text-xs whitespace-nowrap"
               >
-                {p}
+                {lang === 'kz' ? pKz : p}
               </button>
             ))}
           </div>
@@ -164,7 +167,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
                   <div className="flex items-center justify-between text-[11px] text-emerald-400 font-bold mb-1.5 pb-1 border-b border-slate-700">
                     <span className="flex items-center space-x-1">
                       <Sparkles size={12} />
-                      <span>ИИ-Аналитик «НарядAI»</span>
+                      <span>{tr('ИИ-Аналитик «НарядAI»', '«НарядAI» ЖИ-талдаушысы')}</span>
                     </span>
                     <span className="text-slate-400 font-normal">{m.timestamp}</span>
                   </div>
@@ -180,7 +183,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
                   <div className="mt-3 pt-2.5 border-t border-slate-700 space-y-2">
                     <div className="text-[11px] font-bold text-slate-300 flex items-center space-x-1">
                       <Users size={13} className="text-emerald-400" />
-                      <span>Исполнители, готовые к назначению:</span>
+                      <span>{tr('Исполнители, готовые к назначению:', 'Тағайындауға дайын орындаушылар:')}</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {m.response.data.map((w: any) => (
@@ -190,7 +193,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
                         >
                           <div>
                             <div className="font-bold text-xs text-white">{w.name}</div>
-                            <div className="text-[10px] text-slate-400">{w.specialty} • {w.grade} разряд</div>
+                            <div className="text-[10px] text-slate-400">{ts(w.specialty)} • {w.grade} {tr('разряд', 'разряд')}</div>
                           </div>
                           <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
                             {w.status}
@@ -206,7 +209,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
                   <div className="mt-3 pt-2.5 border-t border-slate-700 space-y-2">
                     <div className="text-[11px] font-bold text-red-400 flex items-center space-x-1">
                       <AlertTriangle size={13} />
-                      <span>Просроченные наряды:</span>
+                      <span>{tr('Просроченные наряды:', 'Мерзімі өткен нарядтар:')}</span>
                     </div>
                     <div className="space-y-1.5">
                       {m.response.data.map((ord: any) => (
@@ -216,16 +219,16 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
                         >
                           <div>
                             <div className="font-bold text-xs text-white">
-                              Наряд #{ord.number} — <span className="text-slate-300 font-normal">{ord.equipment}</span>
+                              {tr('Наряд', 'Наряд')} #{ord.number} — <span className="text-slate-300 font-normal">{ord.equipment}</span>
                             </div>
-                            <div className="text-[10px] text-slate-400">Исполнитель: {ord.assignee}</div>
+                            <div className="text-[10px] text-slate-400">{tr('Исполнитель:', 'Орындаушы:')} {ord.assignee}</div>
                           </div>
                           {onSelectOrder && (
                             <button
                               onClick={() => onSelectOrder(ord.id)}
                               className="px-2.5 py-1 bg-red-800 hover:bg-red-700 text-white rounded-lg text-[11px] font-bold flex items-center space-x-1 transition"
                             >
-                              <span>Открыть</span>
+                              <span>{tr('Открыть', 'Ашу')}</span>
                               <ExternalLink size={12} />
                             </button>
                           )}
@@ -238,7 +241,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
                 {/* Рекомендации следующих вопросов */}
                 {m.response?.suggestions && m.response.suggestions.length > 0 && (
                   <div className="mt-3 pt-2.5 border-t border-slate-700">
-                    <div className="text-[10px] text-slate-400 font-semibold mb-1.5">Возможные уточнения:</div>
+                    <div className="text-[10px] text-slate-400 font-semibold mb-1.5">{tr('Возможные уточнения:', 'Мүмкін нақтылаулар:')}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {m.response.suggestions.map((sug, sIdx) => (
                         <button
@@ -266,7 +269,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
           {loading && (
             <div className="flex items-center space-x-2 text-slate-400 text-xs p-3 bg-slate-800/60 rounded-xl border border-slate-700/60 w-fit">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
-              <span>ИИ анализирует оперативные данные смены...</span>
+              <span>{tr('ИИ анализирует оперативные данные смены...', 'ЖИ ауысымның жедел деректерін талдауда...')}</span>
             </div>
           )}
 
@@ -291,7 +294,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
                   ? 'bg-red-600 border-red-500 text-white animate-pulse shadow-lg shadow-red-900/50'
                   : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700'
               }`}
-              title={isListening ? 'Идёт распознавание голоса... Нажмите для отмены' : 'Голосовой запрос (микрофон)'}
+              title={isListening ? tr('Идёт распознавание голоса... Нажмите для отмены', 'Дауыс танылуда... Бас тарту үшін басыңыз') : tr('Голосовой запрос (микрофон)', 'Дауыстық сұрау (микрофон)')}
             >
               {isListening ? <MicOff size={18} /> : <Mic size={18} />}
             </button>
@@ -300,7 +303,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
               type="text"
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
-              placeholder={isListening ? 'Говорите вопрос в микрофон...' : 'Задайте вопрос смены (текстом или голосом)...'}
+              placeholder={isListening ? tr('Говорите вопрос в микрофон...', 'Сұрағыңызды микрофонға айтыңыз...') : tr('Задайте вопрос смены (текстом или голосом)...', 'Ауысым бойынша сұрақ қойыңыз (мәтінмен немесе дауыспен)...')}
               className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-emerald-500"
             />
 
@@ -310,7 +313,7 @@ export const MasterAssistantModal: React.FC<MasterAssistantModalProps> = ({ onCl
               className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-950 transition flex items-center justify-center space-x-1.5 shrink-0"
             >
               <Send size={16} />
-              <span className="hidden sm:inline">Спросить</span>
+              <span className="hidden sm:inline">{tr('Спросить', 'Сұрау')}</span>
             </button>
           </form>
         </div>

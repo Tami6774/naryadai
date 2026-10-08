@@ -13,17 +13,17 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => {
   const { 
     user, quickSwitch, logout, notifications, unreadCount, demoMode,
-    soundEnabled, toggleSound, playAlertSound, isOnline, lang, setLang, t,
+    soundEnabled, toggleSound, playAlertSound, isOnline, lang, setLang, t, tr,
     offlineCount, syncOfflineNow
   } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSwitchMenu, setShowSwitchMenu] = useState(false);
 
   const demoUsers = [
-    { login: 'master1', name: 'Исмаилов М. (Мастер смены)', role: 'master', icon: Shield },
-    { login: 'ahmetov', name: 'Ахметов Е. (Слесарь, свободен)', role: 'worker', icon: Wrench },
-    { login: 'serikov', name: 'Сериков Д. (Слесарь, в работе)', role: 'worker', icon: Wrench },
-    { login: 'boss', name: 'Сагинтаев Б. (Гл. механик)', role: 'manager', icon: BarChart2 },
+    { login: 'master1', name: tr('Исмаилов М. (Мастер смены)', 'Исмаилов М. (Ауысым шебері)'), role: 'master', icon: Shield },
+    { login: 'ahmetov', name: tr('Ахметов Е. (Слесарь, свободен)', 'Ахметов Е. (Слесарь, бос)'), role: 'worker', icon: Wrench },
+    { login: 'serikov', name: tr('Сериков Д. (Слесарь, в работе)', 'Сериков Д. (Слесарь, жұмыста)'), role: 'worker', icon: Wrench },
+    { login: 'boss', name: tr('Сагинтаев Б. (Гл. механик)', 'Сағынтаев Б. (Бас механик)'), role: 'manager', icon: BarChart2 },
   ];
 
   return (
@@ -101,10 +101,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                 <button
                   onClick={() => syncOfflineNow()}
                   className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-950/80 border border-amber-500 text-amber-200 hover:bg-amber-900 transition shadow animate-pulse"
-                  title="Есть сохранённые офлайн-действия. Нажмите для синхронизации с сервером"
+                  title={tr('Есть сохранённые офлайн-действия. Нажмите для синхронизации с сервером', 'Офлайн сақталған әрекеттер бар. Серверімен синхрондау үшін басыңыз')}
                 >
                   <RefreshCw size={12} className="text-amber-400" />
-                  <span>{offlineCount} {lang === 'kz' ? 'офлайн' : 'офлайн'}</span>
+                  <span>{offlineCount} {tr('офлайн', 'офлайн')}</span>
                 </button>
               )}
 
@@ -122,9 +122,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                 <button
                   onClick={() => playAlertSound(true, true)}
                   className="px-1.5 py-1 text-[10px] text-slate-400 hover:text-white border-l border-slate-600 font-semibold"
-                  title="Тест звукового оповещения"
+                  title={tr('Тест звукового оповещения', 'Дыбыстық хабарландыруды тексеру')}
                 >
-                  Тест
+                  {tr('Тест', 'Сынақ')}
                 </button>
               </div>
 
@@ -144,17 +144,17 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                 <button
                   onClick={() => setShowSwitchMenu(!showSwitchMenu)}
                   className="flex items-center space-x-1 text-xs bg-slate-700/80 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-600 transition"
-                  title="Переключить роль для демонстрации"
+                  title={tr('Переключить роль для демонстрации', 'Демонстрация үшін рөлді ауыстыру')}
                 >
                   <RefreshCw size={13} className="text-emerald-400" />
-                  <span className="hidden sm:inline">Роль:</span>
+                  <span className="hidden sm:inline">{tr('Роль:', 'Рөл:')}</span>
                   <span className="font-semibold text-emerald-400">{user.short_name}</span>
                 </button>
 
                 {showSwitchMenu && (
                   <div className="absolute right-0 mt-2 w-64 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 py-2 z-50">
                     <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-700/60 mb-1">
-                      Быстрое переключение (Demo Day)
+                      {tr('Быстрое переключение (Demo Day)', 'Жылдам ауыстыру (Demo Day)')}
                     </div>
                     {demoUsers.map((u) => (
                       <button
@@ -181,7 +181,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
                   className="p-2 text-slate-300 hover:text-white bg-slate-700/60 hover:bg-slate-700 rounded-lg relative transition"
-                  title="Уведомления"
+                  title={tr('Уведомления', 'Хабарландырулар')}
                 >
                   <Bell size={17} />
                   {unreadCount > 0 && (
@@ -194,11 +194,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
                 {showNotifications && (
                   <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 py-2 z-50 max-h-96 overflow-y-auto">
                     <div className="px-4 py-2 border-b border-slate-700 flex justify-between items-center">
-                      <span className="font-semibold text-sm text-slate-200">Уведомления ИИ</span>
-                      <span className="text-xs text-slate-400">{notifications.length} событий</span>
+                      <span className="font-semibold text-sm text-slate-200">{tr('Уведомления ИИ', 'ЖИ хабарландырулары')}</span>
+                      <span className="text-xs text-slate-400">{notifications.length} {tr('событий', 'оқиға')}</span>
                     </div>
                     {notifications.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-400">Уведомлений нет</div>
+                      <div className="p-4 text-center text-xs text-slate-400">{tr('Уведомлений нет', 'Хабарландыру жоқ')}</div>
                     ) : (
                       <div className="divide-y divide-slate-700/50">
                         {notifications.map((n) => (
@@ -224,7 +224,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
               <button
                 onClick={logout}
                 className="p-2 text-slate-400 hover:text-red-400 bg-slate-700/60 hover:bg-slate-700 rounded-lg transition"
-                title="Выйти"
+                title={tr('Выйти', 'Шығу')}
               >
                 <LogOut size={17} />
               </button>
@@ -269,7 +269,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab }) => 
       {!isOnline && (
         <div className="bg-amber-600 text-white text-xs font-bold py-1.5 px-4 text-center shadow flex items-center justify-center space-x-2">
           <WifiOff size={14} />
-          <span>Связь с сервером прервана. НарядAI работает в автономном режиме кэширования.</span>
+          <span>{tr('Связь с сервером прервана. НарядAI работает в автономном режиме кэширования.', 'Сервермен байланыс үзілді. НарядAI кэштеу автономды режимінде жұмыс істеп тұр.')}</span>
         </div>
       )}
     </>

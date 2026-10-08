@@ -3,6 +3,7 @@ import { api } from '../api';
 import { Section, Equipment, User, Priority, WorkType } from '../types';
 import { X, Sparkles, AlertTriangle, Clock, Camera, Check, ShieldAlert, Mic, MicOff, QrCode, Search } from 'lucide-react';
 import { useVoiceInput } from '../utils/useVoice';
+import { useAuth } from '../context/AuthContext';
 
 const MAX_PHOTOS = 5;  // как на сервере (routers/orders.py)
 
@@ -12,6 +13,7 @@ interface NewOrderModalProps {
 }
 
 export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess }) => {
+  const { tr, ts, lang } = useAuth();
   const [sections, setSections] = useState<Section[]>([]);
   const [allEquipment, setAllEquipment] = useState<Equipment[]>([]);
   const [workers, setWorkers] = useState<User[]>([]);
@@ -55,7 +57,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
       setQrInput('');
       setError(null);
     } else {
-      setError(`Оборудование с кодом "${rawCode}" не найдено в базе данных`);
+      setError(tr(`Оборудование с кодом "${rawCode}" не найдено в базе данных`, `"${rawCode}" кодты жабдық дерекқорда табылмады`));
     }
   };
 
@@ -137,15 +139,15 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!equipmentId) {
-      setError('Выберите оборудование');
+      setError(tr('Выберите оборудование', 'Жабдықты таңдаңыз'));
       return;
     }
     if (!description.trim()) {
-      setError('Укажите описание проблемы');
+      setError(tr('Укажите описание проблемы', 'Мәселенің сипаттамасын көрсетіңіз'));
       return;
     }
     if (assignMode === 'brigade' && !brigadeId) {
-      setError('Выберите бригаду');
+      setError(tr('Выберите бригаду', 'Бригаданы таңдаңыз'));
       return;
     }
     setSubmitting(true);
@@ -172,7 +174,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
 
       onSuccess();
     } catch (err: any) {
-      setError(err.message || 'Ошибка создания наряда');
+      setError(err.message || tr('Ошибка создания наряда', 'Наряд жасау қатесі'));
       setSubmitting(false);
     }
   };
@@ -188,8 +190,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
               <ShieldAlert size={20} />
             </span>
             <div>
-              <h3 className="font-bold text-base text-white">Выдача наряда (быстро в ≤ 6 нажатий)</h3>
-              <p className="text-xs text-slate-400">Мастер смены • мобильный ввод</p>
+              <h3 className="font-bold text-base text-white">{tr('Выдача наряда (быстро в ≤ 6 нажатий)', 'Наряд беру (≤ 6 басуда жылдам)')}</h3>
+              <p className="text-xs text-slate-400">{tr('Мастер смены • мобильный ввод', 'Ауысым шебері • мобильді енгізу')}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg">
@@ -208,7 +210,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
           
           {/* Приоритет (Крупные кнопки) */}
           <div>
-            <label className="block text-slate-300 font-semibold mb-1.5">Приоритет наряда</label>
+            <label className="block text-slate-300 font-semibold mb-1.5">{tr('Приоритет наряда', 'Наряд басымдығы')}</label>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
@@ -219,8 +221,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                     : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <span>🚨 Аварийный</span>
-                <span className="text-[10px] opacity-80">срочно в работу</span>
+                <span>{tr('🚨 Аварийный', '🚨 Апаттық')}</span>
+                <span className="text-[10px] opacity-80">{tr('срочно в работу', 'шұғыл жұмысқа')}</span>
               </button>
 
               <button
@@ -232,8 +234,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                     : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <span>⚠️ Высокий</span>
-                <span className="text-[10px] opacity-80">в течение 4ч</span>
+                <span>{tr('⚠️ Высокий', '⚠️ Жоғары')}</span>
+                <span className="text-[10px] opacity-80">{tr('в течение 4ч', '4 сағат ішінде')}</span>
               </button>
 
               <button
@@ -245,29 +247,29 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                     : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <span>📋 Обычный</span>
-                <span className="text-[10px] opacity-80">по очереди</span>
+                <span>{tr('📋 Обычный', '📋 Қалыпты')}</span>
+                <span className="text-[10px] opacity-80">{tr('по очереди', 'кезек бойынша')}</span>
               </button>
             </div>
           </div>
 
           {/* Быстрый выбор по QR-коду (Бонус Section 10) */}
           <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-            <span className="text-slate-400 text-xs font-medium">Агрегат / Цех:</span>
+            <span className="text-slate-400 text-xs font-medium">{tr('Агрегат / Цех:', 'Агрегат / Цех:')}</span>
             <button
               type="button"
               onClick={() => setShowQrModal(true)}
               className="flex items-center space-x-1.5 px-3 py-1 bg-slate-800 hover:bg-emerald-950/40 text-emerald-400 hover:text-emerald-300 border border-slate-700 hover:border-emerald-600 rounded-lg text-xs font-bold transition btn-touch"
             >
               <QrCode size={14} />
-              <span>📷 Сканировать QR-код</span>
+              <span>{tr('📷 Сканировать QR-код', '📷 QR-кодты сканерлеу')}</span>
             </button>
           </div>
 
           {/* Участок и оборудование */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Участок</label>
+              <label className="block text-slate-300 font-semibold mb-1">{tr('Участок', 'Бөлімше')}</label>
               <select
                 value={sectionId}
                 onChange={(e) => {
@@ -276,22 +278,22 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                 }}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
               >
-                <option value="">Выберите участок...</option>
+                <option value="">{tr('Выберите участок...', 'Бөлімшені таңдаңыз...')}</option>
                 {sections.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                  <option key={s.id} value={s.id}>{ts(s.name)}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Оборудование *</label>
+              <label className="block text-slate-300 font-semibold mb-1">{tr('Оборудование *', 'Жабдық *')}</label>
               <select
                 value={equipmentId}
                 onChange={(e) => setEquipmentId(Number(e.target.value))}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-medium"
                 required
               >
-                <option value="">Выберите оборудование...</option>
+                <option value="">{tr('Выберите оборудование...', 'Жабдықты таңдаңыз...')}</option>
                 {filteredEquipment.map(eq => (
                   <option key={eq.id} value={eq.id}>{eq.name} ({eq.inv_no})</option>
                 ))}
@@ -302,7 +304,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
           {/* Описание проблемы */}
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="text-slate-300 font-semibold">Описание неисправности</label>
+              <label className="text-slate-300 font-semibold">{tr('Описание неисправности', 'Ақаудың сипаттамасы')}</label>
               <div className="flex items-center space-x-1.5">
                 <button
                   type="button"
@@ -312,24 +314,24 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                       ? 'bg-red-600 border-red-500 text-white animate-pulse shadow-md shadow-red-950'
                       : 'bg-slate-700/80 hover:bg-slate-700 border-slate-600 text-emerald-400'
                   }`}
-                  title="Голосовой ввод (распознавание речи)"
+                  title={tr('Голосовой ввод (распознавание речи)', 'Дауыспен енгізу (сөйлеуді тану)')}
                 >
                   {isListening ? <MicOff size={12} /> : <Mic size={12} />}
-                  <span>{isListening ? 'Слушаю...' : 'Голос'}</span>
+                  <span>{isListening ? tr('Слушаю...', 'Тыңдап тұрмын...') : tr('Голос', 'Дауыс')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setDescription('Течь масла на насосе из-под уплотнения')}
                   className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-0.5 rounded text-slate-300"
                 >
-                  Пресет: Течь масла
+                  {tr('Пресет: Течь масла', 'Пресет: Май ағуы')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setDescription('Сильный нагрев и шум подшипникового узла')}
                   className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-0.5 rounded text-slate-300"
                 >
-                  Пресет: Подшипник
+                  {tr('Пресет: Подшипник', 'Пресет: Мойынтірек')}
                 </button>
               </div>
             </div>
@@ -337,7 +339,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              placeholder="Опишите видимый дефект или симптомы поломки (или надиктуйте голосом)..."
+              placeholder={tr('Опишите видимый дефект или симптомы поломки (или надиктуйте голосом)...', 'Көрінетін ақауды немесе бұзылу белгілерін сипаттаңыз (немесе дауыспен айтыңыз)...')}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-emerald-500"
               required
             />
@@ -346,11 +348,11 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                 <div className="flex items-center space-x-1.5 truncate">
                   <Sparkles size={14} className="text-emerald-400 shrink-0" />
                   <span className="truncate">
-                    ИИ-подсказка шифра: <strong>[{suggestedFault.code}] {suggestedFault.name}</strong> (норматив: ~{suggestedFault.norm_hours}ч)
+                    {tr('ИИ-подсказка шифра:', 'ЖИ шифр кеңесі:')} <strong>[{suggestedFault.code}] {ts(suggestedFault.name)}</strong> ({tr('норматив:', 'норматив:')} ~{suggestedFault.norm_hours}{tr('ч', 'сағ')})
                   </span>
                 </div>
                 <span className="text-[10px] text-emerald-300 font-bold ml-2 shrink-0 bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-700">
-                  {suggestedFault.confidence}% совпадение
+                  {suggestedFault.confidence}% {tr('совпадение', 'сәйкестік')}
                 </span>
               </div>
             )}
@@ -361,9 +363,9 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-slate-300 font-semibold flex items-center space-x-1.5">
                 <Sparkles size={16} className="text-emerald-400" />
-                <span>ИИ-подбор исполнителя (раздел 5.1 п.3)</span>
+                <span>{tr('ИИ-подбор исполнителя (раздел 5.1 п.3)', 'ЖИ орындаушы таңдауы (5.1-бөлім 3-т.)')}</span>
               </label>
-              {loadingAi && <span className="text-[11px] text-emerald-400 animate-pulse">ИИ подбирает...</span>}
+              {loadingAi && <span className="text-[11px] text-emerald-400 animate-pulse">{tr('ИИ подбирает...', 'ЖИ таңдап жатыр...')}</span>}
             </div>
 
             {/* Кому выдать: исполнителю или бригаде */}
@@ -379,7 +381,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                       : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500'
                   }`}
                 >
-                  {mode === 'worker' ? '👷 Исполнителю' : '👥 Бригаде'}
+                  {mode === 'worker' ? tr('👷 Исполнителю', '👷 Орындаушыға') : tr('👥 Бригаде', '👥 Бригадаға')}
                 </button>
               ))}
             </div>
@@ -403,14 +405,14 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                       >
                         <div className="font-bold text-white text-xs">{b.name}</div>
                         <div className={`text-[11px] ${free ? 'text-emerald-400' : 'text-amber-400'}`}>
-                          {free ? '🟢' : '🟡'} свободно {free} из {members.length}
+                          {free ? '🟢' : '🟡'} {tr('свободно', 'бос')} {free} {tr('из', '/')} {members.length}
                         </div>
                       </button>
                     );
                   })}
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  ИИ назначит лучшего свободного члена бригады нужной специальности; выбор попадёт в журнал наряда.
+                  {tr('ИИ назначит лучшего свободного члена бригады нужной специальности; выбор попадёт в журнал наряда.', 'ЖИ бригаданың қажетті мамандықтағы ең жақсы бос мүшесін тағайындайды; таңдау наряд журналына түседі.')}
                 </div>
               </div>
             )}
@@ -430,10 +432,10 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-white text-xs">{cand.short_name}</span>
                       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-900 text-emerald-300">
-                        {cand.live?.state === 'free' ? '🟢 Свободен' : '🟡 В работе'}
+                        {cand.live?.state === 'free' ? tr('🟢 Свободен', '🟢 Бос') : tr('🟡 В работе', '🟡 Жұмыста')}
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-300 mt-0.5">{cand.specialty}, {cand.grade} разряд</div>
+                    <div className="text-[11px] text-slate-300 mt-0.5">{ts(cand.specialty)}, {cand.grade} {tr('разряд', 'разряд')}</div>
                     <div className="text-[10px] text-emerald-400 mt-1 italic leading-tight">
                       ★ {cand.reason}
                     </div>
@@ -449,10 +451,10 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
               onChange={(e) => setAssigneeId(Number(e.target.value))}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:border-emerald-500"
             >
-              <option value="">Назначить позже / свободный пул</option>
+              <option value="">{tr('Назначить позже / свободный пул', 'Кейін тағайындау / бос пул')}</option>
               {workers.map(w => (
                 <option key={w.id} value={w.id}>
-                  {w.short_name} ({w.specialty}) — {w.live?.label}
+                  {w.short_name} ({ts(w.specialty)}) — {ts(w.live?.label)}
                 </option>
               ))}
             </select>
@@ -463,19 +465,19 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-slate-300 font-semibold text-xs flex items-center space-x-1.5">
-                <span>Срок выполнения наряда (дедлайн)</span>
+                <span>{tr('Срок выполнения наряда (дедлайн)', 'Нарядты орындау мерзімі (дедлайн)')}</span>
               </label>
               <span className={`text-[11px] font-bold ${deadlineMinutes === 1 ? 'text-red-400 animate-pulse' : 'text-emerald-400'}`}>
-                {deadlineMinutes === 1 ? '⚡ ДЕМО: 1 минута (просрочка вживую)' : `+${deadlineMinutes >= 60 ? (deadlineMinutes/60) + ' ч' : deadlineMinutes + ' мин'}`}
+                {deadlineMinutes === 1 ? tr('⚡ ДЕМО: 1 минута (просрочка вживую)', '⚡ ДЕМО: 1 минут (мерзімнің өтуі тікелей)') : `+${deadlineMinutes >= 60 ? (deadlineMinutes/60) + ' ' + tr('ч', 'сағ') : deadlineMinutes + ' ' + tr('мин', 'мин')}`}
               </span>
             </div>
             <div className="grid grid-cols-5 gap-1.5">
               {[
-                { label: '⚡ Демо 1м', val: 1 },
-                { label: '30 мин', val: 30 },
-                { label: '2 часа', val: 120 },
-                { label: '4 часа', val: 240 },
-                { label: '8 часов', val: 480 },
+                { label: tr('⚡ Демо 1м', '⚡ Демо 1м'), val: 1 },
+                { label: tr('30 мин', '30 мин'), val: 30 },
+                { label: tr('2 часа', '2 сағат'), val: 120 },
+                { label: tr('4 часа', '4 сағат'), val: 240 },
+                { label: tr('8 часов', '8 сағат'), val: 480 },
               ].map(opt => (
                 <button
                   key={opt.val}
@@ -497,24 +499,24 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
 
           {/* Комментарий мастера */}
           <div>
-            <label className="block text-slate-300 font-semibold mb-1 text-xs">Указания мастера смены (опционально)</label>
+            <label className="block text-slate-300 font-semibold mb-1 text-xs">{tr('Указания мастера смены (опционально)', 'Ауысым шебері нұсқаулары (міндетті емес)')}</label>
             <input
               type="text"
               value={masterComment}
               onChange={(e) => setMasterComment(e.target.value)}
-              placeholder="Особые условия: выставить ограждение, проверить давление..."
+              placeholder={tr('Особые условия: выставить ограждение, проверить давление...', 'Ерекше шарттар: қоршау қою, қысымды тексеру...')}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:border-emerald-500"
             />
           </div>
 
           {/* Фото дефекта (Камера/галерея) */}
           <div>
-            <label className="block text-slate-300 font-semibold mb-1">Фото неисправности (до 5 фото)</label>
+            <label className="block text-slate-300 font-semibold mb-1">{tr('Фото неисправности (до 5 фото)', 'Ақаудың фотосы (5 фотоға дейін)')}</label>
             <div className="flex items-center space-x-3">
               <label className="cursor-pointer flex items-center space-x-2 bg-slate-900 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl border border-slate-700 transition">
                 <Camera size={18} className="text-emerald-400" />
                 <span className="text-xs">
-                  {photoFiles.length >= MAX_PHOTOS ? `Выбрано ${MAX_PHOTOS} фото` : photoFiles.length ? 'Добавить ещё фото' : 'Сделать фото / Галерея'}
+                  {photoFiles.length >= MAX_PHOTOS ? tr(`Выбрано ${MAX_PHOTOS} фото`, `${MAX_PHOTOS} фото таңдалды`) : photoFiles.length ? tr('Добавить ещё фото', 'Тағы фото қосу') : tr('Сделать фото / Галерея', 'Фото түсіру / Галерея')}
                 </span>
                 <input
                   type="file"
@@ -531,7 +533,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
               </label>
               {photoFiles.length > 0 && (
                 <span className="text-xs text-emerald-400 font-medium">
-                  {photoFiles.length}/{MAX_PHOTOS} (будут сжаты ≤ 1600px)
+                  {photoFiles.length}/{MAX_PHOTOS} {tr('(будут сжаты ≤ 1600px)', '(≤ 1600px дейін сығылады)')}
                 </span>
               )}
             </div>
@@ -544,7 +546,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                       type="button"
                       onClick={() => setPhotoFiles(prev => prev.filter((_, j) => j !== i))}
                       className="min-w-[48px] min-h-[48px] flex items-center justify-center text-slate-400 hover:text-red-400"
-                      aria-label="Убрать фото"
+                      aria-label={tr('Убрать фото', 'Фотоны алып тастау')}
                     >
                       <X size={14} />
                     </button>
@@ -561,7 +563,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
               onClick={onClose}
               className="px-4 py-2 text-slate-300 hover:text-white bg-slate-700/60 rounded-xl transition"
             >
-              Отмена
+              {tr('Отмена', 'Бас тарту')}
             </button>
             <button
               type="submit"
@@ -569,11 +571,11 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
               className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-950 transition flex items-center space-x-2 btn-touch disabled:opacity-50"
             >
               {submitting ? (
-                <span>Выдаётся...</span>
+                <span>{tr('Выдаётся...', 'Берілуде...')}</span>
               ) : (
                 <>
                   <Check size={18} />
-                  <span>Выдать наряд</span>
+                  <span>{tr('Выдать наряд', 'Наряд беру')}</span>
                 </>
               )}
             </button>
@@ -593,8 +595,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                   <QrCode size={18} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-white">Сканер QR-кода оборудования</h4>
-                  <p className="text-[11px] text-slate-400">Мгновенный выбор агрегата в 1 тап (Бонус Section 10)</p>
+                  <h4 className="font-bold text-sm text-white">{tr('Сканер QR-кода оборудования', 'Жабдық QR-код сканері')}</h4>
+                  <p className="text-[11px] text-slate-400">{tr('Мгновенный выбор агрегата в 1 тап (Бонус Section 10)', 'Агрегатты 1 басумен лезде таңдау (Бонус Section 10)')}</p>
                 </div>
               </div>
               <button
@@ -612,21 +614,21 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                 <div className="absolute inset-x-0 h-0.5 bg-emerald-400 shadow-[0_0_10px_#34d399] animate-pulse top-1/2 -translate-y-1/2"></div>
                 <QrCode size={40} className="text-slate-700 mb-1" />
                 <span className="text-xs text-emerald-300 font-medium z-10 bg-slate-900/80 px-2 py-0.5 rounded">
-                  Камера готова • Наведите на QR-шильдик агрегата
+                  {tr('Камера готова • Наведите на QR-шильдик агрегата', 'Камера дайын • Агрегаттың QR-тақтайшасына бағыттаңыз')}
                 </span>
               </div>
 
               {/* Ручной ввод / быстрый поиск по коду */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-300">
-                  Или введите инв. номер / QR вручную:
+                  {tr('Или введите инв. номер / QR вручную:', 'Немесе инв. нөмірді / QR-ды қолмен енгізіңіз:')}
                 </label>
                 <div className="flex space-x-2">
                   <input
                     type="text"
                     value={qrInput}
                     onChange={(e) => setQrInput(e.target.value)}
-                    placeholder="Например: НС-001, ДР-001, СБ-001..."
+                    placeholder={tr('Например: НС-001, ДР-001, СБ-001...', 'Мысалы: НС-001, ДР-001, СБ-001...')}
                     className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -641,7 +643,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1"
                   >
                     <Search size={14} />
-                    <span>Найти</span>
+                    <span>{tr('Найти', 'Табу')}</span>
                   </button>
                 </div>
               </div>
@@ -649,7 +651,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
               {/* Быстрые пресеты оборудования комбината для Demo */}
               <div className="space-y-2 pt-2 border-t border-slate-700/80">
                 <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Шильдики на агрегатах комбината (клик для быстрого выбора):
+                  {tr('Шильдики на агрегатах комбината (клик для быстрого выбора):', 'Комбинат агрегаттарындағы тақтайшалар (жылдам таңдау үшін басыңыз):')}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                   {allEquipment.slice(0, 10).map((eq) => (
@@ -661,7 +663,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ onClose, onSuccess
                     >
                       <div className="truncate pr-2">
                         <div className="font-bold text-xs text-white truncate">{eq.name}</div>
-                        <div className="text-[10px] text-slate-400">{eq.section}</div>
+                        <div className="text-[10px] text-slate-400">{ts(eq.section)}</div>
                       </div>
                       <span className="font-mono text-[10px] font-black bg-slate-800 text-emerald-400 px-1.5 py-0.5 rounded border border-slate-700 shrink-0">
                         {eq.inv_no}

@@ -2,6 +2,15 @@ import { Capacitor } from '@capacitor/core';
 import { WorkOrder, User, NotificationItem, AssistantResponse, Priority } from './types';
 import { hasPendingForOrder, isNetworkError, OPTIMISTIC_STATUS, saveOfflineAction } from './utils/offlineQueue';
 
+// Язык интерфейса вне React-компонентов (сообщения об ошибках); выбирается в AuthContext
+const tl = (ru: string, kz: string): string => {
+  try {
+    return localStorage.getItem('naryad_lang') === 'kz' ? kz : ru;
+  } catch {
+    return ru;
+  }
+};
+
 // Адрес сервера по умолчанию для APK (пока пользователь не указал свой на экране входа)
 const NATIVE_DEFAULT_API = 'http://192.168.3.81:8000';
 
@@ -126,7 +135,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   });
 
   if (!res.ok) {
-    throw await errorFromResponse(res, `Ошибка запроса (${res.status})`);
+    throw await errorFromResponse(res, tl(`Ошибка запроса (${res.status})`, `Сұрау қатесі (${res.status})`));
   }
 
   return res.json();
@@ -254,7 +263,7 @@ export const api = {
       },
       body: formData,
     });
-    if (!res.ok) throw await errorFromResponse(res, 'Ошибка загрузки фото');
+    if (!res.ok) throw await errorFromResponse(res, tl('Ошибка загрузки фото', 'Фото жүктеу қатесі'));
     return res.json();
   },
   setMasterScore: (id: number, score: number, comment?: string) =>
@@ -320,11 +329,11 @@ export const api = {
 
   // Excel Downloads (период и фильтры — как у отчёта на экране)
   downloadShiftExcel: (params: ReportParams = {}) =>
-    downloadFile(`/reports/shift/export/excel${reportQuery(params)}`, 'smena_report', 'Ошибка выгрузки отчёта за смену'),
+    downloadFile(`/reports/shift/export/excel${reportQuery(params)}`, 'smena_report', tl('Ошибка выгрузки отчёта за смену', 'Ауысым есебін жүктеу қатесі')),
   downloadRatingExcel: (params: ReportParams | number = 30) =>
     downloadFile(`/reports/rating/export/excel${reportQuery(typeof params === 'number' ? { days: params } : params)}`,
-      'reiting_ispolnitelei', 'Ошибка выгрузки рейтинга'),
+      'reiting_ispolnitelei', tl('Ошибка выгрузки рейтинга', 'Рейтингті жүктеу қатесі')),
   downloadMaterialsExcel: (params: ReportParams | number = 30) =>
     downloadFile(`/reports/materials/export/excel${reportQuery(typeof params === 'number' ? { days: params } : params)}`,
-      'tmc_spisanie', 'Ошибка выгрузки списания ТМЦ'),
+      'tmc_spisanie', tl('Ошибка выгрузки списания ТМЦ', 'ТМҚ есептен шығаруды жүктеу қатесі')),
 };

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 export const MasterView: React.FC = () => {
-  const { lastEvent } = useAuth();
+  const { lastEvent, tr, ts } = useAuth();
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [workers, setWorkers] = useState<User[]>([]);
   const [counters, setCounters] = useState({ shift: 'day', issued: 0, done: 0, overdue: 0, equipment_down: 0 });
@@ -102,13 +102,13 @@ export const MasterView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800/80 p-4 rounded-2xl border border-slate-700 shadow-lg">
         <div>
           <h2 className="text-xl font-bold text-white flex items-center space-x-2">
-            <span>Панель смены мастера</span>
+            <span>{tr('Панель смены мастера', 'Шебердің ауысым тақтасы')}</span>
             <span className="text-xs bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-800">
-              Смена: {counters.shift === 'day' ? '☀️ Дневная' : '🌙 Ночная'}
+              {tr('Смена:', 'Ауысым:')} {counters.shift === 'day' ? tr('☀️ Дневная', '☀️ Күндізгі') : tr('🌙 Ночная', '🌙 Түнгі')}
             </span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Контроль выполнения работ и статусы исполнителей в реальном времени
+            {tr('Контроль выполнения работ и статусы исполнителей в реальном времени', 'Жұмыстың орындалуын бақылау және орындаушылардың мәртебелері нақты уақытта')}
           </p>
         </div>
 
@@ -116,10 +116,10 @@ export const MasterView: React.FC = () => {
           <button
             onClick={() => setShowAssistantModal(true)}
             className="px-4 py-3 bg-slate-700/80 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-bold text-sm rounded-xl border border-slate-600 transition flex items-center justify-center space-x-2 btn-touch shadow"
-            title="Задать вопрос ИИ-ассистенту мастера (раздел 6.7)"
+            title={tr('Задать вопрос ИИ-ассистенту мастера (раздел 6.7)', 'Шебердің ЖИ-көмекшісіне сұрақ қою (6.7-бөлім)')}
           >
             <Sparkles size={18} className="text-emerald-400" />
-            <span>🤖 ИИ-Ассистент мастера</span>
+            <span>{tr('🤖 ИИ-Ассистент мастера', '🤖 Шебердің ЖИ-көмекшісі')}</span>
           </button>
 
           <button
@@ -127,7 +127,7 @@ export const MasterView: React.FC = () => {
             className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-950 transition flex items-center justify-center space-x-2 btn-touch"
           >
             <Plus size={20} />
-            <span>+ Выдать наряд (≤ 6 нажатий)</span>
+            <span>{tr('+ Выдать наряд (≤ 6 нажатий)', '+ Наряд беру (≤ 6 басу)')}</span>
           </button>
         </div>
       </div>
@@ -140,7 +140,7 @@ export const MasterView: React.FC = () => {
           </div>
           <div>
             <div className="text-2xl font-black text-white">{counters.issued}</div>
-            <div className="text-xs text-slate-400 font-medium">Выдано за смену</div>
+            <div className="text-xs text-slate-400 font-medium">{tr('Выдано за смену', 'Ауысымда берілді')}</div>
           </div>
         </div>
 
@@ -150,7 +150,7 @@ export const MasterView: React.FC = () => {
           </div>
           <div>
             <div className="text-2xl font-black text-emerald-400">{counters.done}</div>
-            <div className="text-xs text-slate-400 font-medium">Выполнено</div>
+            <div className="text-xs text-slate-400 font-medium">{tr('Выполнено', 'Орындалды')}</div>
           </div>
         </div>
 
@@ -160,7 +160,7 @@ export const MasterView: React.FC = () => {
           </div>
           <div>
             <div className="text-2xl font-black text-red-400">{counters.overdue}</div>
-            <div className="text-xs text-slate-400 font-medium">Просрочено</div>
+            <div className="text-xs text-slate-400 font-medium">{tr('Просрочено', 'Мерзімі өтті')}</div>
           </div>
         </div>
 
@@ -170,7 +170,7 @@ export const MasterView: React.FC = () => {
           </div>
           <div>
             <div className="text-2xl font-black text-amber-400">{counters.equipment_down}</div>
-            <div className="text-xs text-slate-400 font-medium">Оборудование в простое</div>
+            <div className="text-xs text-slate-400 font-medium">{tr('Оборудование в простое', 'Тоқтап тұрған жабдық')}</div>
           </div>
         </div>
       </div>
@@ -180,10 +180,10 @@ export const MasterView: React.FC = () => {
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-sm text-slate-200 flex items-center space-x-2">
             <Users size={16} className="text-emerald-400" />
-            <span>Статусы исполнителей смены в реальном времени (≤ 5 сек)</span>
+            <span>{tr('Статусы исполнителей смены в реальном времени (≤ 5 сек)', 'Ауысым орындаушыларының мәртебелері нақты уақытта (≤ 5 сек)')}</span>
           </h3>
           <span className="text-xs text-slate-400">
-            На смене: {workers.filter(w => w.on_shift).length} из {workers.length}
+            {tr('На смене:', 'Ауысымда:')} {workers.filter(w => w.on_shift).length} {tr('из', '/')} {workers.length}
           </span>
         </div>
 
@@ -209,10 +209,10 @@ export const MasterView: React.FC = () => {
                     <span className={`w-2.5 h-2.5 rounded-full ${badgeBg} animate-pulse`}></span>
                     <span className="font-bold text-xs text-white">{w.short_name}</span>
                   </div>
-                  <span className="text-[10px] font-semibold opacity-90">{w.specialty}</span>
+                  <span className="text-[10px] font-semibold opacity-90">{ts(w.specialty)}</span>
                 </div>
                 <div className="text-[11px] mt-1 font-medium truncate">
-                  {w.live?.label || 'Свободен'}
+                  {ts(w.live?.label || 'Свободен')}
                 </div>
               </div>
             );
@@ -226,7 +226,7 @@ export const MasterView: React.FC = () => {
           <div className="flex items-center space-x-2">
             <Filter size={16} className="text-emerald-400 shrink-0" />
             <span className="font-bold text-sm text-slate-200">
-              Доска нарядов ({filteredOrders.length})
+              {tr('Доска нарядов', 'Наряд тақтасы')} ({filteredOrders.length})
             </span>
             {hasActiveFilters && (
               <button
@@ -234,7 +234,7 @@ export const MasterView: React.FC = () => {
                 className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center space-x-1 ml-2 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/60 transition"
               >
                 <X size={12} />
-                <span>Сбросить</span>
+                <span>{tr('Сбросить', 'Тазарту')}</span>
               </button>
             )}
           </div>
@@ -246,7 +246,7 @@ export const MasterView: React.FC = () => {
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Поиск по агрегату, №..."
+                placeholder={tr('Поиск по агрегату, №...', 'Агрегат, № бойынша іздеу...')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-2.5 py-1 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
@@ -259,11 +259,11 @@ export const MasterView: React.FC = () => {
               onChange={(e) => setFilterSection(e.target.value)}
               className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 focus:outline-none focus:border-emerald-500"
             >
-              <option value="all">Все участки</option>
-              <option value="Участок дробления">Дробление</option>
-              <option value="Обогатительная фабрика">Обогащение</option>
-              <option value="Участок сушки">Сушка</option>
-              <option value="Ремонтно-механический цех">РМЦ</option>
+              <option value="all">{tr('Все участки', 'Барлық бөлімшелер')}</option>
+              <option value="Участок дробления">{tr('Дробление', 'Ұсақтау')}</option>
+              <option value="Обогатительная фабрика">{tr('Обогащение', 'Байыту')}</option>
+              <option value="Участок сушки">{tr('Сушка', 'Кептіру')}</option>
+              <option value="Ремонтно-механический цех">{tr('РМЦ', 'ТМЦ')}</option>
             </select>
 
             {/* Фильтр по приоритету */}
@@ -272,11 +272,11 @@ export const MasterView: React.FC = () => {
               onChange={(e) => setFilterPriority(e.target.value)}
               className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 focus:outline-none focus:border-emerald-500"
             >
-              <option value="all">Все приоритеты</option>
-              <option value="emergency">🚨 Аварийный</option>
-              <option value="high">⚠️ Высокий</option>
-              <option value="normal">📋 Обычный</option>
-              <option value="planned">🛠️ Плановый</option>
+              <option value="all">{tr('Все приоритеты', 'Барлық басымдықтар')}</option>
+              <option value="emergency">{tr('🚨 Аварийный', '🚨 Апаттық')}</option>
+              <option value="high">{tr('⚠️ Высокий', '⚠️ Жоғары')}</option>
+              <option value="normal">{tr('📋 Обычный', '📋 Қалыпты')}</option>
+              <option value="planned">{tr('🛠️ Плановый', '🛠️ Жоспарлы')}</option>
             </select>
 
             {/* Фильтр по исполнителю */}
@@ -285,7 +285,7 @@ export const MasterView: React.FC = () => {
               onChange={(e) => setFilterAssignee(e.target.value)}
               className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 focus:outline-none focus:border-emerald-500"
             >
-              <option value="all">Все исполнители</option>
+              <option value="all">{tr('Все исполнители', 'Барлық орындаушылар')}</option>
               {workers.map((w) => (
                 <option key={w.id} value={w.id}>{w.short_name} ({w.specialty})</option>
               ))}
@@ -300,7 +300,7 @@ export const MasterView: React.FC = () => {
                   : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
               }`}
             >
-              <span>🔥 Просроченные</span>
+              <span>{tr('🔥 Просроченные', '🔥 Мерзімі өткендер')}</span>
               {orders.filter(o => o.overdue).length > 0 && (
                 <span className="ml-1 px-1 bg-red-950 text-red-200 text-[10px] rounded-full">
                   {orders.filter(o => o.overdue).length}
@@ -316,10 +316,10 @@ export const MasterView: React.FC = () => {
               <span className="text-xl">⚠️</span>
               <div>
                 <div className="font-bold text-sm text-red-100">
-                  Внимание! {rejectedOrders.length} наряд(ов) отклонено исполнителями:
+                  {tr('Внимание!', 'Назар аударыңыз!')} {rejectedOrders.length} {tr('наряд(ов) отклонено исполнителями:', 'наряд орындаушылар қабылдамады:')}
                 </div>
                 <div className="text-red-300">
-                  {rejectedOrders.map(o => `№${o.number} (${o.equipment?.name})`).join(', ')}. Нажмите для переназначения на другого слесаря.
+                  {rejectedOrders.map(o => `№${o.number} (${o.equipment?.name})`).join(', ')}. {tr('Нажмите для переназначения на другого слесаря.', 'Басқа слесарьға қайта тағайындау үшін басыңыз.')}
                 </div>
               </div>
             </div>
@@ -328,7 +328,7 @@ export const MasterView: React.FC = () => {
               onClick={() => setSelectedOrderId(rejectedOrders[0].id)}
               className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition shadow text-xs whitespace-nowrap"
             >
-              Переназначить
+              {tr('Переназначить', 'Қайта тағайындау')}
             </button>
           </div>
         )}
@@ -338,52 +338,52 @@ export const MasterView: React.FC = () => {
           {/* Колонка 1: Выданы / В очереди */}
           <div className="bg-slate-800/60 p-3 rounded-2xl border border-slate-700/80 space-y-3">
             <div className="flex justify-between items-center px-1 font-bold text-xs text-blue-400 uppercase tracking-wider">
-              <span>Ожидают ({colNew.length})</span>
+              <span>{tr('Ожидают', 'Күтуде')} ({colNew.length})</span>
             </div>
             <div className="space-y-2">
               {colNew.map(o => (
                 <OrderCard key={o.id} order={o} onClick={() => setSelectedOrderId(o.id)} />
               ))}
-              {colNew.length === 0 && <div className="text-xs text-slate-500 italic p-3 text-center">Нет нарядов</div>}
+              {colNew.length === 0 && <div className="text-xs text-slate-500 italic p-3 text-center">{tr('Нет нарядов', 'Нарядтар жоқ')}</div>}
             </div>
           </div>
 
           {/* Колонка 2: В работе */}
           <div className="bg-slate-800/60 p-3 rounded-2xl border border-slate-700/80 space-y-3">
             <div className="flex justify-between items-center px-1 font-bold text-xs text-amber-400 uppercase tracking-wider">
-              <span>В работе ({colProgress.length})</span>
+              <span>{tr('В работе', 'Жұмыста')} ({colProgress.length})</span>
             </div>
             <div className="space-y-2">
               {colProgress.map(o => (
                 <OrderCard key={o.id} order={o} onClick={() => setSelectedOrderId(o.id)} />
               ))}
-              {colProgress.length === 0 && <div className="text-xs text-slate-500 italic p-3 text-center">Нет нарядов</div>}
+              {colProgress.length === 0 && <div className="text-xs text-slate-500 italic p-3 text-center">{tr('Нет нарядов', 'Нарядтар жоқ')}</div>}
             </div>
           </div>
 
           {/* Колонка 3: Проверка ИИ / Доработка */}
           <div className="bg-slate-800/60 p-3 rounded-2xl border border-slate-700/80 space-y-3">
             <div className="flex justify-between items-center px-1 font-bold text-xs text-emerald-400 uppercase tracking-wider">
-              <span>Проверка ИИ ({colReview.length})</span>
+              <span>{tr('Проверка ИИ', 'ЖИ тексеруі')} ({colReview.length})</span>
             </div>
             <div className="space-y-2">
               {colReview.map(o => (
                 <OrderCard key={o.id} order={o} onClick={() => setSelectedOrderId(o.id)} />
               ))}
-              {colReview.length === 0 && <div className="text-xs text-slate-500 italic p-3 text-center">Нет нарядов</div>}
+              {colReview.length === 0 && <div className="text-xs text-slate-500 italic p-3 text-center">{tr('Нет нарядов', 'Нарядтар жоқ')}</div>}
             </div>
           </div>
 
           {/* Колонка 4: Закрыты мастером */}
           <div className="bg-slate-800/60 p-3 rounded-2xl border border-slate-700/80 space-y-3">
             <div className="flex justify-between items-center px-1 font-bold text-xs text-slate-400 uppercase tracking-wider">
-              <span>Закрыты ({colDone.length})</span>
+              <span>{tr('Закрыты', 'Жабылды')} ({colDone.length})</span>
             </div>
             <div className="space-y-2">
               {colDone.map(o => (
                 <OrderCard key={o.id} order={o} onClick={() => setSelectedOrderId(o.id)} />
               ))}
-              {colDone.length === 0 && <div className="text-xs text-slate-500 italic p-3 text-center">Нет нарядов</div>}
+              {colDone.length === 0 && <div className="text-xs text-slate-500 italic p-3 text-center">{tr('Нет нарядов', 'Нарядтар жоқ')}</div>}
             </div>
           </div>
 
@@ -425,6 +425,7 @@ export const MasterView: React.FC = () => {
 
 // Карточка наряда для канбана
 const OrderCard: React.FC<{ order: WorkOrder; onClick: () => void }> = ({ order, onClick }) => {
+  const { tr, ts, lang } = useAuth();
   return (
     <div
       onClick={onClick}
@@ -441,14 +442,14 @@ const OrderCard: React.FC<{ order: WorkOrder; onClick: () => void }> = ({ order,
           order.priority === 'high' ? 'bg-amber-950 text-amber-400 border border-amber-800' :
           'bg-slate-800 text-slate-300'
         }`}>
-          {order.priority_label}
+          {ts(order.priority_label)}
         </span>
       </div>
 
       {order.status === 'rejected' && (
         <div className="mb-2 p-1.5 bg-red-950/90 border border-red-500 rounded-lg text-[10px] font-bold text-red-200 flex items-center justify-between shadow">
-          <span>❌ Отклонён слесарем</span>
-          <span className="text-[9px] text-red-300 underline">Переназначить →</span>
+          <span>{tr('❌ Отклонён слесарем', '❌ Слесарь қабылдамады')}</span>
+          <span className="text-[9px] text-red-300 underline">{tr('Переназначить →', 'Қайта тағайындау →')}</span>
         </div>
       )}
 
@@ -458,7 +459,7 @@ const OrderCard: React.FC<{ order: WorkOrder; onClick: () => void }> = ({ order,
       <div className="mt-2.5 pt-2 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-400">
         <span className="font-semibold text-slate-300">{order.assignee?.short_name || '—'}</span>
         <span className={order.overdue ? 'text-red-400 font-bold' : ''}>
-          {order.overdue ? `Просрочен!` : new Date(order.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {order.overdue ? tr('Просрочен!', 'Мерзімі өтті!') : new Date(order.deadline).toLocaleTimeString(lang === 'kz' ? 'kk-KZ' : [], { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
     </div>

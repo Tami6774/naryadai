@@ -16,7 +16,7 @@ interface OrderDetailsModalProps {
 }
 
 export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, onClose, onRefresh }) => {
-  const { user } = useAuth();
+  const { user, tr, ts, lang } = useAuth();
   const [order, setOrder] = useState<WorkOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +59,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
   if (loading || !order) {
     return (
       <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-        <div className="text-emerald-400 font-semibold text-sm animate-pulse">Загрузка данных наряда...</div>
+        <div className="text-emerald-400 font-semibold text-sm animate-pulse">{tr('Загрузка данных наряда...', 'Наряд деректері жүктелуде...')}</div>
       </div>
     );
   }
@@ -82,7 +82,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
 
   const handleReturnRework = async () => {
     if (!reworkReason.trim()) {
-      setError('Укажите причину возврата на доработку');
+      setError(tr('Укажите причину возврата на доработку', 'Қайта қарауға қайтару себебін көрсетіңіз'));
       return;
     }
     setActionLoading(true);
@@ -114,7 +114,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
 
   const handleReassign = async () => {
     if (!reassignWorkerId) {
-      setError('Выберите нового исполнителя');
+      setError(tr('Выберите нового исполнителя', 'Жаңа орындаушыны таңдаңыз'));
       return;
     }
     setActionLoading(true);
@@ -125,7 +125,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
       await fetchOrder();
       onRefresh();
     } catch (err: any) {
-      setError(err.message || 'Ошибка переназначения исполнителя');
+      setError(err.message || tr('Ошибка переназначения исполнителя', 'Орындаушыны қайта тағайындау қатесі'));
     } finally {
       setActionLoading(false);
     }
@@ -139,7 +139,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
       await fetchOrder();
       onRefresh();
     } catch (err: any) {
-      setError(err.message || 'Ошибка изменения приоритета');
+      setError(err.message || tr('Ошибка изменения приоритета', 'Басымдықты өзгерту қатесі'));
     } finally {
       setActionLoading(false);
     }
@@ -147,7 +147,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
 
   const handleCancelOrder = async () => {
     if (!cancelReason.trim()) {
-      setError('Укажите причину отмены наряда');
+      setError(tr('Укажите причину отмены наряда', 'Нарядты болдырмау себебін көрсетіңіз'));
       return;
     }
     setActionLoading(true);
@@ -157,7 +157,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
       onRefresh();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Ошибка отмены наряда');
+      setError(err.message || tr('Ошибка отмены наряда', 'Нарядты болдырмау қатесі'));
     } finally {
       setActionLoading(false);
     }
@@ -187,7 +187,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                   {order.status_label}
                 </span>
               </div>
-              <p className="text-xs text-slate-400">{order.section.name} • Инв. № {order.equipment.inv_no}</p>
+              <p className="text-xs text-slate-400">{ts(order.section.name)} • {tr('Инв. №', 'Инв. №')} {order.equipment.inv_no}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -196,20 +196,20 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                 type="button"
                 onClick={() => setShowHistory(true)}
                 className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-700/80 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl border border-slate-600 text-xs font-semibold transition"
-                title="История нарядов, ремонтов и простоев по оборудованию"
+                title={tr('История нарядов, ремонтов и простоев по оборудованию', 'Жабдық бойынша нарядтар, жөндеулер және тоқтап тұру тарихы')}
               >
                 <History size={15} className="text-emerald-400" />
-                <span className="hidden sm:inline">История</span>
+                <span className="hidden sm:inline">{tr('История', 'Тарих')}</span>
               </button>
             )}
             <button
               type="button"
               onClick={() => window.open(api.getOrderPrintUrl(order.id), '_blank')}
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-700/80 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl border border-slate-600 text-xs font-semibold transition"
-              title="Печать или экспорт наряда в PDF"
+              title={tr('Печать или экспорт наряда в PDF', 'Нарядты басып шығару немесе PDF-ке экспорттау')}
             >
               <Printer size={15} className="text-emerald-400" />
-              <span className="hidden sm:inline">Печать / PDF</span>
+              <span className="hidden sm:inline">{tr('Печать / PDF', 'Басып шығару / PDF')}</span>
             </button>
             <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg">
               <X size={20} />
@@ -229,27 +229,27 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
           {/* Основные детали */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
             <div>
-              <span className="text-slate-400 text-xs block">Описание проблемы (мастер):</span>
+              <span className="text-slate-400 text-xs block">{tr('Описание проблемы (мастер):', 'Мәселенің сипаттамасы (шебер):')}</span>
               <p className="font-medium text-slate-200 mt-0.5">{order.description}</p>
             </div>
             <div>
-              <span className="text-slate-400 text-xs block">Исполнитель:</span>
+              <span className="text-slate-400 text-xs block">{tr('Исполнитель:', 'Орындаушы:')}</span>
               <p className="font-medium text-slate-200 mt-0.5">
-                {order.assignee ? `${order.assignee.full_name} (${order.assignee.specialty})` : 'Не назначен'}
+                {order.assignee ? `${order.assignee.full_name} (${ts(order.assignee.specialty)})` : tr('Не назначен', 'Тағайындалмаған')}
               </p>
               {order.brigade && (
-                <p className="text-[11px] text-slate-400 mt-0.5">Наряд на бригаду: {order.brigade.name}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">{tr('Наряд на бригаду:', 'Бригадаға наряд:')} {order.brigade.name}</p>
               )}
             </div>
             <div>
-              <span className="text-slate-400 text-xs block">Срок исполнения:</span>
+              <span className="text-slate-400 text-xs block">{tr('Срок исполнения:', 'Орындау мерзімі:')}</span>
               <p className={`font-medium mt-0.5 ${order.overdue ? 'text-red-400 font-bold' : 'text-slate-200'}`}>
-                {new Date(order.deadline).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                {order.overdue && ` (Просрочен на ${order.overdue_minutes} мин)`}
+                {new Date(order.deadline).toLocaleString(lang === 'kz' ? 'kk-KZ' : [], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                {order.overdue && ` (${tr('Просрочен на', 'Мерзімі өтті:')} ${order.overdue_minutes} ${tr('мин', 'мин')})`}
               </p>
             </div>
             <div>
-              <span className="text-slate-400 text-xs block">Мастер смены:</span>
+              <span className="text-slate-400 text-xs block">{tr('Мастер смены:', 'Ауысым шебері:')}</span>
               <p className="font-medium text-slate-200 mt-0.5">{order.master.full_name}</p>
             </div>
           </div>
@@ -259,35 +259,35 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
             <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-700/80 flex flex-wrap items-center justify-between gap-2">
               <div className="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
                 <Shield size={14} className="text-emerald-400" />
-                <span>Мастер смены (раздел 5.1 п.5):</span>
+                <span>{tr('Мастер смены (раздел 5.1 п.5):', 'Ауысым шебері (5.1-бөлім 5-т.):')}</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => { setReassignWorkerId(order.assignee?.id || ''); setShowReassignModal(true); }}
                   className="px-2.5 py-1.5 bg-blue-950/80 hover:bg-blue-900 border border-blue-700 text-blue-300 text-xs font-semibold rounded-lg transition flex items-center space-x-1 btn-touch"
-                  title="Переназначить исполнителя"
+                  title={tr('Переназначить исполнителя', 'Орындаушыны қайта тағайындау')}
                 >
                   <UserPlus size={13} />
-                  <span>Переназначить</span>
+                  <span>{tr('Переназначить', 'Қайта тағайындау')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowPriorityModal(true)}
                   className="px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-700 text-amber-300 text-xs font-semibold rounded-lg transition flex items-center space-x-1 btn-touch"
-                  title="Изменить приоритет наряда"
+                  title={tr('Изменить приоритет наряда', 'Наряд басымдығын өзгерту')}
                 >
                   <Flag size={13} />
-                  <span>Приоритет: {order.priority_label}</span>
+                  <span>{tr('Приоритет:', 'Басымдық:')} {ts(order.priority_label)}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCancelModal(true)}
                   className="px-2.5 py-1.5 bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-300 text-xs font-semibold rounded-lg transition flex items-center space-x-1 btn-touch"
-                  title="Отменить наряд с фиксацией причины"
+                  title={tr('Отменить наряд с фиксацией причины', 'Нарядты себебін көрсетіп бас тарту')}
                 >
                   <Ban size={13} />
-                  <span>Отменить...</span>
+                  <span>{tr('Отменить...', 'Болдырмау...')}</span>
                 </button>
               </div>
             </div>
@@ -298,25 +298,25 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
             <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-700">
               <h4 className="font-bold text-sm text-white mb-2 flex items-center space-x-2">
                 <Wrench size={16} className="text-emerald-400" />
-                <span>Отчёт о выполненной работе</span>
+                <span>{tr('Отчёт о выполненной работе', 'Орындалған жұмыс туралы есеп')}</span>
               </h4>
               <div className="space-y-2">
                 {order.fault_code && (
                   <div>
-                    <span className="text-slate-400 text-xs">Шифр неисправности: </span>
-                    <span className="font-bold text-emerald-400">[{order.fault_code.code}] {order.fault_code.name}</span>
-                    <span className="text-xs text-slate-500 ml-2">(норма: {order.fault_code.norm_hours} ч)</span>
+                    <span className="text-slate-400 text-xs">{tr('Шифр неисправности:', 'Ақау шифры:')} </span>
+                    <span className="font-bold text-emerald-400">[{order.fault_code.code}] {ts(order.fault_code.name)}</span>
+                    <span className="text-xs text-slate-500 ml-2">({tr('норма:', 'норма:')} {order.fault_code.norm_hours} {tr('ч', 'сағ')})</span>
                   </div>
                 )}
                 {order.work_done && (
                   <div>
-                    <span className="text-slate-400 text-xs block">Выполненные операции:</span>
+                    <span className="text-slate-400 text-xs block">{tr('Выполненные операции:', 'Орындалған операциялар:')}</span>
                     <p className="text-slate-200 mt-0.5">{order.work_done}</p>
                   </div>
                 )}
                 {order.materials && order.materials.length > 0 && (
                   <div>
-                    <span className="text-slate-400 text-xs block mb-1">Списанные материалы:</span>
+                    <span className="text-slate-400 text-xs block mb-1">{tr('Списанные материалы:', 'Есептен шығарылған материалдар:')}</span>
                     <div className="flex flex-wrap gap-1.5">
                       {order.materials.map(m => (
                         <span key={m.id} className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs text-slate-300">
@@ -335,22 +335,22 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
             <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
               <h4 className="font-bold text-sm text-white mb-3 flex items-center space-x-2">
                 <ImageIcon size={16} className="text-emerald-400" />
-                <span>Фотофиксация: «До» и «После» (раздел 6.3)</span>
+                <span>{tr('Фотофиксация: «До» и «После» (раздел 6.3)', 'Фотосуретке түсіру: «Дейін» және «Кейін» (6.3-бөлім)')}</span>
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
                 {/* Фото ДО */}
                 <div>
-                  <span className="text-xs text-slate-400 font-semibold block mb-1.5">Фото ДО (Неисправность):</span>
+                  <span className="text-xs text-slate-400 font-semibold block mb-1.5">{tr('Фото ДО (Неисправность):', 'Фото ДЕЙІН (Ақау):')}</span>
                   {photosBefore.length === 0 ? (
                     <div className="h-36 bg-slate-800 rounded-xl flex items-center justify-center text-xs text-slate-500 border border-slate-700">
-                      Нет фото дефекта
+                      {tr('Нет фото дефекта', 'Ақау фотосы жоқ')}
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {photosBefore.map(p => (
                         <div key={p.id} className="relative group overflow-hidden rounded-xl border border-slate-700">
-                          <img src={p.url} alt="До ремонта" className="w-full h-36 object-cover" />
+                          <img src={p.url} alt={tr('До ремонта', 'Жөндеуге дейін')} className="w-full h-36 object-cover" />
                           <span className="absolute bottom-1 right-1 bg-black/70 text-[10px] text-white px-1.5 py-0.5 rounded">
                             {new Date(p.uploaded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
@@ -362,18 +362,18 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
 
                 {/* Фото ПОСЛЕ */}
                 <div>
-                  <span className="text-xs text-slate-400 font-semibold block mb-1.5">Фото ПОСЛЕ (Устранение):</span>
+                  <span className="text-xs text-slate-400 font-semibold block mb-1.5">{tr('Фото ПОСЛЕ (Устранение):', 'Фото КЕЙІН (Жою):')}</span>
                   {photosAfter.length === 0 ? (
                     <div className="h-36 bg-slate-800 rounded-xl flex items-center justify-center text-xs text-slate-500 border border-slate-700">
-                      Фото после ремонта отсутствует
+                      {tr('Фото после ремонта отсутствует', 'Жөндеуден кейінгі фото жоқ')}
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {photosAfter.map(p => (
                         <div key={p.id} className="relative group overflow-hidden rounded-xl border border-emerald-800/80">
-                          <img src={p.url} alt="После ремонта" className="w-full h-36 object-cover" />
+                          <img src={p.url} alt={tr('После ремонта', 'Жөндеуден кейін')} className="w-full h-36 object-cover" />
                           <span className="absolute bottom-1 right-1 bg-emerald-950/80 text-[10px] text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800">
-                            Проверено ИИ
+                            {tr('Проверено ИИ', 'ЖИ тексерді')}
                           </span>
                         </div>
                       ))}
@@ -397,14 +397,14 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
                   <Sparkles size={18} className="text-emerald-400" />
-                  <h4 className="font-bold text-sm text-white">ИИ-Проверка качества наряда</h4>
+                  <h4 className="font-bold text-sm text-white">{tr('ИИ-Проверка качества наряда', 'Наряд сапасын ЖИ тексеруі')}</h4>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs text-slate-400">Оценка ИИ:</span>
+                  <span className="text-xs text-slate-400">{tr('Оценка ИИ:', 'ЖИ бағасы:')}</span>
                   <span className="font-black text-lg text-emerald-400">{order.assessment.score}/100</span>
                   {order.assessment.master_score !== null && (
                     <span className="text-xs font-bold text-amber-300">
-                      (Мастер изменил на {order.assessment.master_score})
+                      ({tr('Мастер изменил на', 'Шебер өзгертті:')} {order.assessment.master_score})
                     </span>
                   )}
                 </div>
@@ -418,22 +418,22 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                     ? 'bg-amber-900/60 text-amber-200 border border-amber-700'
                     : 'bg-emerald-900/60 text-emerald-200 border border-emerald-700'
                 }`}>
-                  {order.assessment.verdict_label}
+                  {ts(order.assessment.verdict_label)}
                 </span>
                 {order.assessment.photo_score != null && (
                   <span className="ml-2 inline-block text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-200 border border-slate-600">
-                    Фото: {order.assessment.photo_score}/5
+                    {tr('Фото:', 'Фото:')} {order.assessment.photo_score}/5
                   </span>
                 )}
                 {order.assessment.needs_master_check && (
                   <span className="ml-2 inline-block text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-900/60 text-amber-200 border border-amber-700">
-                    Нужна проверка мастером
+                    {tr('Нужна проверка мастером', 'Шебердің тексеруі қажет')}
                   </span>
                 )}
-                <span className="ml-2 inline-block text-[10px] text-slate-400" title="Чем выполнена проверка">
+                <span className="ml-2 inline-block text-[10px] text-slate-400" title={tr('Чем выполнена проверка', 'Тексеру қалай орындалды')}>
                   {String(order.assessment.details?.engine || '').includes('+')
-                    ? 'Правила + языковая и мультимодальная модель'
-                    : 'Правила и онтология (без облака)'}
+                    ? tr('Правила + языковая и мультимодальная модель', 'Ережелер + тілдік және мультимодальды модель')
+                    : tr('Правила и онтология (без облака)', 'Ережелер және онтология (бұлтсыз)')}
                 </span>
               </div>
 
@@ -444,7 +444,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
               {/* Корректировка оценки мастером (раздел 6.4 кейса) */}
               {isMaster && (
                 <div className="pt-3 border-t border-slate-700/60 flex items-center space-x-2">
-                  <span className="text-xs text-slate-400">Финальное слово за мастером:</span>
+                  <span className="text-xs text-slate-400">{tr('Финальное слово за мастером:', 'Соңғы сөз шеберде:')}</span>
                   <input
                     type="number"
                     min="0"
@@ -455,7 +455,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                   />
                   <input
                     type="text"
-                    placeholder="Комментарий мастера..."
+                    placeholder={tr('Комментарий мастера...', 'Шебердің түсініктемесі...')}
                     value={masterComment}
                     onChange={(e) => setMasterComment(e.target.value)}
                     className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200"
@@ -465,7 +465,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                     onClick={handleSaveScore}
                     className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-xs font-semibold rounded-lg transition"
                   >
-                    Сохранить
+                    {tr('Сохранить', 'Сақтау')}
                   </button>
                 </div>
               )}
@@ -474,14 +474,14 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
 
           {/* Журнал событий и хронология (раздел 5.5) */}
           <div>
-            <h4 className="font-bold text-sm text-slate-300 mb-2">Хронология выполнения наряда</h4>
+            <h4 className="font-bold text-sm text-slate-300 mb-2">{tr('Хронология выполнения наряда', 'Нарядтың орындалу хронологиясы')}</h4>
             <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-700/60 space-y-2 max-h-40 overflow-y-auto">
               {order.events?.map(ev => (
                 <div key={ev.id} className="text-xs flex items-center justify-between text-slate-300 py-1 border-b border-slate-800 last:border-0">
                   <div className="flex items-center space-x-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span className="font-semibold text-slate-200">{ev.action_label}</span>
-                    <span className="text-slate-500">({ev.actor?.short_name || 'ИИ / система'})</span>
+                    <span className="font-semibold text-slate-200">{ts(ev.action_label)}</span>
+                    <span className="text-slate-500">({ev.actor?.short_name || tr('ИИ / система', 'ЖИ / жүйе')})</span>
                     {ev.reason && <span className="text-amber-400 italic">«{ev.reason}»</span>}
                     {ev.comment && <span className="text-slate-400">({ev.comment})</span>}
                   </div>
@@ -499,14 +499,14 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
         {isMaster && order.status === 'ai_review' && (
           <div className="p-4 bg-slate-900/90 border-t border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="text-xs text-slate-400">
-              Наряд ожидает решения мастера после проверки ИИ
+              {tr('Наряд ожидает решения мастера после проверки ИИ', 'Наряд ЖИ тексергеннен кейін шебердің шешімін күтуде')}
             </div>
             <div className="flex items-center space-x-2 w-full sm:w-auto">
               {showReworkInput ? (
                 <div className="flex items-center space-x-2 w-full">
                   <input
                     type="text"
-                    placeholder="Причина возврата на доработку..."
+                    placeholder={tr('Причина возврата на доработку...', 'Қайта қарауға қайтару себебі...')}
                     value={reworkReason}
                     onChange={(e) => setReworkReason(e.target.value)}
                     className="bg-slate-800 border border-red-800 rounded-xl px-3 py-2 text-xs text-white flex-1"
@@ -516,13 +516,13 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                     disabled={actionLoading}
                     className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl"
                   >
-                    Вернуть
+                    {tr('Вернуть', 'Қайтару')}
                   </button>
                   <button
                     onClick={() => setShowReworkInput(false)}
                     className="text-slate-400 hover:text-white text-xs px-2"
                   >
-                    Отмена
+                    {tr('Отмена', 'Бас тарту')}
                   </button>
                 </div>
               ) : (
@@ -531,7 +531,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                     onClick={() => setShowReworkInput(true)}
                     className="px-4 py-2 bg-red-950 hover:bg-red-900 border border-red-800 text-red-300 font-bold text-xs rounded-xl transition"
                   >
-                    На доработку
+                    {tr('На доработку', 'Қайта қарауға')}
                   </button>
                   <button
                     onClick={handleApprove}
@@ -539,7 +539,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                     className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-950 transition flex items-center space-x-1"
                   >
                     <CheckCircle size={16} />
-                    <span>Подтвердить и закрыть наряд</span>
+                    <span>{tr('Подтвердить и закрыть наряд', 'Растау және нарядты жабу')}</span>
                   </button>
                 </>
               )}
@@ -554,32 +554,32 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
               <div className="flex justify-between items-center">
                 <h4 className="font-bold text-sm text-white flex items-center space-x-2">
                   <UserPlus size={16} className="text-blue-400" />
-                  <span>Переназначение исполнителя</span>
+                  <span>{tr('Переназначение исполнителя', 'Орындаушыны қайта тағайындау')}</span>
                 </h4>
                 <button onClick={() => setShowReassignModal(false)} className="text-slate-400 hover:text-white">
                   <X size={16} />
                 </button>
               </div>
               <div>
-                <label className="block text-xs text-slate-300 font-semibold mb-1">Выберите исполнителя смены:</label>
+                <label className="block text-xs text-slate-300 font-semibold mb-1">{tr('Выберите исполнителя смены:', 'Ауысым орындаушысын таңдаңыз:')}</label>
                 <select
                   value={reassignWorkerId}
                   onChange={(e) => setReassignWorkerId(e.target.value ? Number(e.target.value) : '')}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200"
                 >
-                  <option value="">Выберите сотрудника...</option>
+                  <option value="">{tr('Выберите сотрудника...', 'Қызметкерді таңдаңыз...')}</option>
                   {workersList.map(w => (
                     <option key={w.id} value={w.id}>
-                      {w.short_name} ({w.specialty}) — {w.live?.label || (w.on_shift ? 'На смене' : 'Не на смене')}
+                      {w.short_name} ({ts(w.specialty)}) — {ts(w.live?.label) || (w.on_shift ? tr('На смене', 'Ауысымда') : tr('Не на смене', 'Ауысымда емес'))}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-slate-300 font-semibold mb-1">Причина переназначения (комментарий):</label>
+                <label className="block text-xs text-slate-300 font-semibold mb-1">{tr('Причина переназначения (комментарий):', 'Қайта тағайындау себебі (түсініктеме):')}</label>
                 <input
                   type="text"
-                  placeholder="Например: Срочный аварийный вызов на другой участок"
+                  placeholder={tr('Например: Срочный аварийный вызов на другой участок', 'Мысалы: Басқа бөлімшеге шұғыл апаттық шақыру')}
                   value={reassignComment}
                   onChange={(e) => setReassignComment(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200"
@@ -591,7 +591,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                   onClick={() => setShowReassignModal(false)}
                   className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs"
                 >
-                  Отмена
+                  {tr('Отмена', 'Бас тарту')}
                 </button>
                 <button
                   type="button"
@@ -599,7 +599,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                   disabled={actionLoading || !reassignWorkerId}
                   className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs disabled:opacity-50"
                 >
-                  Переназначить
+                  {tr('Переназначить', 'Қайта тағайындау')}
                 </button>
               </div>
             </div>
@@ -613,7 +613,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
               <div className="flex justify-between items-center">
                 <h4 className="font-bold text-sm text-white flex items-center space-x-2">
                   <Flag size={16} className="text-amber-400" />
-                  <span>Изменение приоритета наряда</span>
+                  <span>{tr('Изменение приоритета наряда', 'Наряд басымдығын өзгерту')}</span>
                 </h4>
                 <button onClick={() => setShowPriorityModal(false)} className="text-slate-400 hover:text-white">
                   <X size={16} />
@@ -621,7 +621,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {(['emergency', 'high', 'normal', 'planned'] as Priority[]).map((p) => {
-                  const label = p === 'emergency' ? '🚨 Аварийный' : p === 'high' ? '⚠️ Высокий' : p === 'normal' ? '📋 Обычный' : '📅 Плановый';
+                  const label = p === 'emergency' ? tr('🚨 Аварийный', '🚨 Апаттық') : p === 'high' ? tr('⚠️ Высокий', '⚠️ Жоғары') : p === 'normal' ? tr('📋 Обычный', '📋 Қалыпты') : tr('📅 Плановый', '📅 Жоспарлы');
                   return (
                     <button
                       key={p}
@@ -650,17 +650,17 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
               <div className="flex justify-between items-center">
                 <h4 className="font-bold text-sm text-red-300 flex items-center space-x-2">
                   <Ban size={16} className="text-red-400" />
-                  <span>Отмена наряда мастером</span>
+                  <span>{tr('Отмена наряда мастером', 'Нарядты шебердің болдырмауы')}</span>
                 </h4>
                 <button onClick={() => setShowCancelModal(false)} className="text-slate-400 hover:text-white">
                   <X size={16} />
                 </button>
               </div>
               <div>
-                <label className="block text-xs text-slate-300 font-semibold mb-1">Причина отмены (обязательно):</label>
+                <label className="block text-xs text-slate-300 font-semibold mb-1">{tr('Причина отмены (обязательно):', 'Болдырмау себебі (міндетті):')}</label>
                 <input
                   type="text"
-                  placeholder="Например: Ложное срабатывание датчика / дубликат наряда"
+                  placeholder={tr('Например: Ложное срабатывание датчика / дубликат наряда', 'Мысалы: Датчиктің жалған іске қосылуы / наряд телнұсқасы')}
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
                   className="w-full bg-slate-900 border border-red-900/80 rounded-xl px-3 py-2 text-xs text-slate-200"
@@ -672,7 +672,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                   onClick={() => setShowCancelModal(false)}
                   className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs"
                 >
-                  Назад
+                  {tr('Назад', 'Артқа')}
                 </button>
                 <button
                   type="button"
@@ -680,7 +680,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ orderId, o
                   disabled={actionLoading || !cancelReason.trim()}
                   className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs disabled:opacity-50"
                 >
-                  Подтвердить отмену
+                  {tr('Подтвердить отмену', 'Болдырмауды растау')}
                 </button>
               </div>
             </div>

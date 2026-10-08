@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, History, AlertTriangle } from 'lucide-react';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 /** История нарядов, ремонтов и простоев по единице оборудования (раздел 5.5 кейса). */
 interface Props {
@@ -11,16 +12,20 @@ interface Props {
 
 const PERIODS = [90, 180, 365];
 
-const fmtDate = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+const fmtDate = (iso: string | null | undefined, locale: string) =>
+  iso ? new Date(iso).toLocaleString(locale, { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
 
-const fmtMinutes = (m?: number | null) => {
+const fmtMinutes = (m: number | null | undefined, tr: (ru: string, kz: string) => string) => {
   if (m === null || m === undefined) return '—';
   const h = Math.floor(m / 60);
-  return h ? `${h} ч ${Math.round(m % 60)} мин` : `${Math.round(m)} мин`;
+  const unitH = tr('ч', 'сағ');
+  const unitM = tr('мин', 'мин');
+  return h ? `${h} ${unitH} ${Math.round(m % 60)} ${unitM}` : `${Math.round(m)} ${unitM}`;
 };
 
 export const EquipmentHistoryModal: React.FC<Props> = ({ equipmentId, onClose, onOpenOrder }) => {
+  const { tr, ts, lang } = useAuth();
+  const locale = lang === 'kz' ? 'kk-KZ' : 'ru-RU';
   const [days, setDays] = useState(365);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,12 +38,12 @@ export const EquipmentHistoryModal: React.FC<Props> = ({ equipmentId, onClose, o
 
   const s = data?.summary;
   const kpis = s ? [
-    { label: 'Нарядов', value: s.orders_total },
-    { label: 'Внеплановых', value: s.unplanned, cls: 'text-amber-400' },
-    { label: 'Плановых (ППР)', value: s.planned },
-    { label: 'Простой', value: `${s.downtime_hours} ч`, cls: 'text-red-400' },
-    { label: 'Ср. время ремонта', value: s.mttr_hours != null ? `${s.mttr_hours} ч` : '—' },
-    { label: 'Ср. интервал между отказами', value: s.mtbf_days != null ? `${s.mtbf_days} дн.` : '—' },
+    { label: tr('Нарядов', 'Нарядтар'), value: s.orders_total },
+    { label: tr('Внеплановых', 'Жоспардан тыс'), value: s.unplanned, cls: 'text-amber-400' },
+    { label: tr('Плановых (ППР)', 'Жоспарлы (ЖЕЖ)'), value: s.planned },
+    { label: tr('Простой', 'Тоқтап тұру'), value: `${s.downtime_hours} ${tr('ч', 'сағ')}`, cls: 'text-red-400' },
+    { label: tr('Ср. время ремонта', 'Жөндеудің орт. уақыты'), value: s.mttr_hours != null ? `${s.mttr_hours} ${tr('ч', 'сағ')}` : '—' },
+    { label: tr('Ср. интервал между отказами', 'Істен шығулар арасындағы орт. аралық'), value: s.mtbf_days != null ? `${s.mtbf_days} ${tr('дн.', 'күн')}` : '—' },
   ] : [];
 
   return (
@@ -51,16 +56,16 @@ export const EquipmentHistoryModal: React.FC<Props> = ({ equipmentId, onClose, o
           <div>
             <div className="flex items-center space-x-2 text-white font-bold">
               <History size={18} className="text-emerald-400" />
-              <span>История оборудования: {data?.equipment?.name || '…'}</span>
+              <span>{tr('История оборудования:', 'Жабдық тарихы:')} {data?.equipment?.name || '…'}</span>
             </div>
             {data?.equipment && (
               <p className="text-xs text-slate-400 mt-0.5">
-                {data.equipment.section} • Инв. № {data.equipment.inv_no} • {data.equipment.type} •
-                критичность {data.equipment.criticality === 1 ? 'высокая' : data.equipment.criticality === 2 ? 'средняя' : 'низкая'}
+                {ts(data.equipment.section)} • {tr('Инв. №', 'Инв. №')} {data.equipment.inv_no} • {data.equipment.type} •
+                {tr('критичность', 'маңыздылығы')} {data.equipment.criticality === 1 ? tr('высокая', 'жоғары') : data.equipment.criticality === 2 ? tr('средняя', 'орташа') : tr('низкая', 'төмен')}
               </p>
             )}
           </div>
-          <button onClick={onClose} className="min-w-[48px] min-h-[48px] flex items-center justify-center text-slate-400 hover:text-white rounded-lg" aria-label="Закрыть">
+          <button onClick={onClose} className="min-w-[48px] min-h-[48px] flex items-center justify-center text-slate-400 hover:text-white rounded-lg" aria-label={tr('Закрыть', 'Жабу')}>
             <X size={20} />
           </button>
         </div>
@@ -73,13 +78,13 @@ export const EquipmentHistoryModal: React.FC<Props> = ({ equipmentId, onClose, o
                 onClick={() => setDays(p)}
                 className={`min-h-[40px] px-3 rounded-lg font-bold transition ${days === p ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
               >
-                {p === 365 ? 'Год' : `${p} дней`}
+                {p === 365 ? tr('Год', 'Жыл') : `${p} ${tr('дней', 'күн')}`}
               </button>
             ))}
           </div>
 
           {error && <div className="p-3 bg-red-950/60 border border-red-800 text-red-200 rounded-xl">{error}</div>}
-          {!data && !error && <div className="text-emerald-400 animate-pulse py-8 text-center">Загрузка истории…</div>}
+          {!data && !error && <div className="text-emerald-400 animate-pulse py-8 text-center">{tr('Загрузка истории…', 'Тарих жүктелуде…')}</div>}
 
           {data && (
             <>
@@ -93,22 +98,22 @@ export const EquipmentHistoryModal: React.FC<Props> = ({ equipmentId, onClose, o
               </div>
 
               <div className="flex flex-wrap gap-3 text-slate-300">
-                <span>Последний отказ: <strong className="text-white">{fmtDate(s.last_failure_at)}</strong></span>
+                <span>{tr('Последний отказ:', 'Соңғы істен шығу:')} <strong className="text-white">{fmtDate(s.last_failure_at, locale)}</strong></span>
                 {s.open_orders > 0 && (
                   <span className="flex items-center gap-1 text-amber-400">
-                    <AlertTriangle size={13} /> открытых нарядов: {s.open_orders}
+                    <AlertTriangle size={13} /> {tr('открытых нарядов:', 'ашық нарядтар:')} {s.open_orders}
                   </span>
                 )}
               </div>
 
               {data.by_fault.length > 0 && (
                 <div>
-                  <div className="font-bold text-slate-300 mb-1.5">Причины по шифрам неисправностей</div>
+                  <div className="font-bold text-slate-300 mb-1.5">{tr('Причины по шифрам неисправностей', 'Ақау шифрлары бойынша себептер')}</div>
                   <div className="flex flex-wrap gap-2">
                     {data.by_fault.map((f: any) => (
                       <span key={f.code} className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1">
-                        <span className="font-mono text-emerald-400">{f.code}</span> {f.name}: <strong>{f.count}</strong>
-                        {f.downtime_hours > 0 && <span className="text-slate-400"> · {f.downtime_hours} ч простоя</span>}
+                        <span className="font-mono text-emerald-400">{f.code}</span> {ts(f.name)}: <strong>{f.count}</strong>
+                        {f.downtime_hours > 0 && <span className="text-slate-400"> · {f.downtime_hours} {tr('ч простоя', 'сағ тоқтап тұру')}</span>}
                       </span>
                     ))}
                   </div>
@@ -120,14 +125,14 @@ export const EquipmentHistoryModal: React.FC<Props> = ({ equipmentId, onClose, o
                   <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] border-b border-slate-700">
                     <tr>
                       <th className="py-2 px-2">№</th>
-                      <th className="py-2 px-2">Выдан</th>
-                      <th className="py-2 px-2">Тип</th>
-                      <th className="py-2 px-2">Описание</th>
-                      <th className="py-2 px-2">Шифр</th>
-                      <th className="py-2 px-2">Исполнитель</th>
-                      <th className="py-2 px-2">Статус</th>
-                      <th className="py-2 px-2 text-right">Простой</th>
-                      <th className="py-2 px-2 text-right">Оценка</th>
+                      <th className="py-2 px-2">{tr('Выдан', 'Берілді')}</th>
+                      <th className="py-2 px-2">{tr('Тип', 'Түрі')}</th>
+                      <th className="py-2 px-2">{tr('Описание', 'Сипаттамасы')}</th>
+                      <th className="py-2 px-2">{tr('Шифр', 'Шифр')}</th>
+                      <th className="py-2 px-2">{tr('Исполнитель', 'Орындаушы')}</th>
+                      <th className="py-2 px-2">{tr('Статус', 'Мәртебесі')}</th>
+                      <th className="py-2 px-2 text-right">{tr('Простой', 'Тоқтап тұру')}</th>
+                      <th className="py-2 px-2 text-right">{tr('Оценка', 'Баға')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700/60">
@@ -138,18 +143,18 @@ export const EquipmentHistoryModal: React.FC<Props> = ({ equipmentId, onClose, o
                         className={onOpenOrder ? 'cursor-pointer hover:bg-slate-700/40' : ''}
                       >
                         <td className="py-2 px-2 font-mono text-emerald-400">#{o.number}</td>
-                        <td className="py-2 px-2 whitespace-nowrap">{fmtDate(o.created_at)}</td>
-                        <td className="py-2 px-2">{o.work_type === 'unplanned' ? <span className="text-amber-400">Внеплан.</span> : 'ППР'}</td>
+                        <td className="py-2 px-2 whitespace-nowrap">{fmtDate(o.created_at, locale)}</td>
+                        <td className="py-2 px-2">{o.work_type === 'unplanned' ? <span className="text-amber-400">{tr('Внеплан.', 'Жоспардан тыс')}</span> : tr('ППР', 'ЖЕЖ')}</td>
                         <td className="py-2 px-2 max-w-[16rem] truncate" title={o.description}>{o.description}</td>
                         <td className="py-2 px-2 font-mono">{o.fault_code || '—'}</td>
                         <td className="py-2 px-2 whitespace-nowrap">{o.assignee?.short_name || '—'}</td>
-                        <td className="py-2 px-2 whitespace-nowrap">{o.status_label}</td>
-                        <td className="py-2 px-2 text-right whitespace-nowrap">{fmtMinutes(o.downtime_minutes)}</td>
+                        <td className="py-2 px-2 whitespace-nowrap">{ts(o.status_label)}</td>
+                        <td className="py-2 px-2 text-right whitespace-nowrap">{fmtMinutes(o.downtime_minutes, tr)}</td>
                         <td className="py-2 px-2 text-right">{o.score ?? '—'}</td>
                       </tr>
                     ))}
                     {data.orders.length === 0 && (
-                      <tr><td colSpan={9} className="py-6 text-center text-slate-500">Нарядов за период нет</td></tr>
+                      <tr><td colSpan={9} className="py-6 text-center text-slate-500">{tr('Нарядов за период нет', 'Кезең бойынша нарядтар жоқ')}</td></tr>
                     )}
                   </tbody>
                 </table>

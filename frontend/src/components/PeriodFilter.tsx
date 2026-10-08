@@ -1,16 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { api, ReportParams } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 /** Период отчёта (раздел 7 кейса): смена, сутки, неделя, месяц или произвольный. */
 export type PeriodPreset = 'shift' | 'day' | 'week' | 'month' | 'custom';
 
-const PRESETS: Array<{ id: PeriodPreset; label: string }> = [
-  { id: 'shift', label: 'Смена' },
-  { id: 'day', label: 'Сутки' },
-  { id: 'week', label: 'Неделя' },
-  { id: 'month', label: 'Месяц' },
-  { id: 'custom', label: 'Период' },
+const PRESETS: Array<{ id: PeriodPreset; label: string; kz: string }> = [
+  { id: 'shift', label: 'Смена', kz: 'Ауысым' },
+  { id: 'day', label: 'Сутки', kz: 'Тәулік' },
+  { id: 'week', label: 'Неделя', kz: 'Апта' },
+  { id: 'month', label: 'Месяц', kz: 'Ай' },
+  { id: 'custom', label: 'Период', kz: 'Кезең' },
 ];
 
 // Локальное время ПК без пояса — в этом формате сервер хранит и сравнивает даты
@@ -46,6 +47,8 @@ interface Props {
 export const PeriodFilter: React.FC<Props> = ({
   onChange, showSection = false, showBrigade = false, defaultPreset = 'shift', presets,
 }) => {
+  const { tr, lang } = useAuth();
+  const locale = lang === 'kz' ? 'kk-KZ' : 'ru-RU';
   const [preset, setPreset] = useState<PeriodPreset>(defaultPreset);
   const [from, setFrom] = useState(() => dateInput(new Date(Date.now() - 7 * 86400000)));
   const [to, setTo] = useState(() => dateInput(new Date()));
@@ -74,26 +77,28 @@ export const PeriodFilter: React.FC<Props> = ({
       case 'shift': {
         const sh = currentShiftBounds(now);
         params = { start: localIso(sh.start), end: localIso(sh.end) };
-        label = sh.night ? 'текущую ночную смену' : 'текущую дневную смену';
+        label = sh.night
+          ? tr('текущую ночную смену', 'ағымдағы түнгі ауысым')
+          : tr('текущую дневную смену', 'ағымдағы күндізгі ауысым');
         break;
       }
       case 'day':
         params = { start: localIso(startOfDay), end: localIso(now) };
-        label = 'сутки';
+        label = tr('сутки', 'тәулік');
         break;
       case 'week':
         params = { start: localIso(new Date(now.getTime() - 7 * 86400000)), end: localIso(now) };
-        label = 'неделю';
+        label = tr('неделю', 'апта');
         break;
       case 'month':
         params = { start: localIso(new Date(now.getTime() - 30 * 86400000)), end: localIso(now) };
-        label = 'месяц';
+        label = tr('месяц', 'ай');
         break;
       default: {
         const s = new Date(`${from}T00:00:00`);
         const e = new Date(`${to}T23:59:59`);
         params = { start: localIso(s), end: localIso(e) };
-        label = `${s.toLocaleDateString('ru-RU')} – ${e.toLocaleDateString('ru-RU')}`;
+        label = `${s.toLocaleDateString(locale)} – ${e.toLocaleDateString(locale)}`;
       }
     }
     const filterLabel = [
@@ -101,7 +106,7 @@ export const PeriodFilter: React.FC<Props> = ({
       brigadeId && brigades.find(x => x.id === brigadeId)?.name,
     ].filter(Boolean).join(', ');
     return { params: { ...params, ...filters }, label: filterLabel ? `${label} (${filterLabel})` : label };
-  }, [preset, from, to, sectionId, brigadeId, sections, brigades, showSection, showBrigade]);
+  }, [preset, from, to, sectionId, brigadeId, sections, brigades, showSection, showBrigade, lang]);
 
   useEffect(() => {
     onChange(value);  // onChange не в зависимостях: родитель передаёт новую функцию на каждый рендер
@@ -123,7 +128,7 @@ export const PeriodFilter: React.FC<Props> = ({
               preset === p.id ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-700'
             }`}
           >
-            {p.label}
+            {lang === 'kz' ? p.kz : p.label}
           </button>
         ))}
       </div>
@@ -136,13 +141,13 @@ export const PeriodFilter: React.FC<Props> = ({
       )}
       {showSection && (
         <select value={sectionId} onChange={e => setSectionId(e.target.value ? Number(e.target.value) : '')} className={selectCls}>
-          <option value="">Все участки</option>
+          <option value="">{tr('Все участки', 'Барлық бөлімшелер')}</option>
           {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
       )}
       {showBrigade && (
         <select value={brigadeId} onChange={e => setBrigadeId(e.target.value ? Number(e.target.value) : '')} className={selectCls}>
-          <option value="">Все бригады</option>
+          <option value="">{tr('Все бригады', 'Барлық бригадалар')}</option>
           {brigades.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
       )}

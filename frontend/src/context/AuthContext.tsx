@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { User, NotificationItem } from '../types';
 import { api, getToken, setToken, getWsBaseUrl, checkServerHealth } from '../api';
-import { Lang, translations } from '../utils/i18n';
+import { Lang, translations, translateServer } from '../utils/i18n';
 import {
   discardOfflineAction, getOfflineQueue, retryOfflineAction, subscribeOfflineQueue, syncOfflineQueue,
   OfflineAction, SyncResult,
@@ -25,6 +25,10 @@ interface AuthContextType {
   lang: Lang;
   setLang: (lang: Lang) => void;
   t: (key: keyof typeof translations['ru']) => string;
+  /** Перевод «на месте»: русский текст и его казахский вариант рядом. */
+  tr: (ru: string, kz: string) => string;
+  /** Перевод справочных текстов сервера (статусы, приоритеты, участки, шифры). */
+  ts: (text: string | null | undefined) => string;
   lastEvent: any;
   offlineCount: number;
   offlineQueue: OfflineAction[];
@@ -76,6 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const dict = translations[lang] || translations['ru'];
     return (dict as any)[key] || (translations['ru'] as any)[key] || key;
   }, [lang]);
+
+  const tr = useCallback((ru: string, kz: string): string => (lang === 'kz' ? kz : ru), [lang]);
+
+  const ts = useCallback((text: string | null | undefined): string => translateServer(lang, text), [lang]);
 
   // Офлайн-очередь подписка
   useEffect(() => {
@@ -383,6 +391,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lang,
       setLang,
       t,
+      tr,
+      ts,
       lastEvent,
       offlineCount: offlineQueue.length,
       offlineQueue,

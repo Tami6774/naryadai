@@ -3,6 +3,7 @@ import { api } from '../api';
 import { WorkOrder, FaultCode, Material } from '../types';
 import { X, Camera, Plus, Trash2, CheckCircle2, AlertTriangle, Sparkles, Mic, MicOff } from 'lucide-react';
 import { useVoiceInput } from '../utils/useVoice';
+import { useAuth } from '../context/AuthContext';
 import { hasPendingForOrder, isNetworkError, queueOfflineAction } from '../utils/offlineQueue';
 
 interface CloseOrderModalProps {
@@ -12,6 +13,7 @@ interface CloseOrderModalProps {
 }
 
 export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose, onSuccess }) => {
+  const { tr, ts } = useAuth();
   const [faultCodes, setFaultCodes] = useState<FaultCode[]>([]);
   const [materialsList, setMaterialsList] = useState<Material[]>([]);
 
@@ -59,7 +61,7 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
   const fillGoodDemo = () => {
     const fc = faultCodes.find(f => f.code === 'Г-01') || faultCodes[0];
     if (fc) setFaultCodeId(fc.id);
-    setWorkDone('Заменены изношенные манжеты и уплотнительные кольца гидронасоса, долито индустриальное масло И-40, течь устранена, проверена работа под нагрузкой');
+    setWorkDone(tr('Заменены изношенные манжеты и уплотнительные кольца гидронасоса, долито индустриальное масло И-40, течь устранена, проверена работа под нагрузкой', 'Гидрсорғының тозған манжеттері мен тығыздағыш сақиналары ауыстырылды, И-40 индустриалды майы құйылды, ағу жойылды, жүктеме астында жұмысы тексерілді'));
     
     const m1 = materialsList.find(m => m.name.includes('Манжета'));
     const m2 = materialsList.find(m => m.name.includes('Масло индустриальное'));
@@ -67,20 +69,20 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
     if (m1) mats.push({ material_id: m1.id, qty: 2 });
     if (m2) mats.push({ material_id: m2.id, qty: 10 });
     setMaterials(mats);
-    setComment('Оборудование выведено на номинальный режим работы');
+    setComment(tr('Оборудование выведено на номинальный режим работы', 'Жабдық номиналды жұмыс режиміне шығарылды'));
   };
 
   // Демо-пресет: Заполнить с нарушениями (без фото, завышение материалов) для Шага 7
   const fillBadDemo = () => {
     const fc = faultCodes.find(f => f.code === 'Г-01') || faultCodes[0];
     if (fc) setFaultCodeId(fc.id);
-    setWorkDone('Сделано быстро');
+    setWorkDone(tr('Сделано быстро', 'Тез жасалды'));
     const m2 = materialsList.find(m => m.name.includes('Масло индустриальное'));
     if (m2) {
       setMaterials([{ material_id: m2.id, qty: 40 }]); // норма 10 -> завышение в 4 раза!
     }
     setPhotoAfter(null);
-    setComment('Без замечаний');
+    setComment(tr('Без замечаний', 'Ескертусіз'));
   };
 
   const addMaterialRow = () => {
@@ -142,7 +144,7 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
       const res: any = await api.applyAction(order.id, 'complete', undefined, undefined, closing);
       onSuccess(Boolean(res?.__offline));
     } catch (err: any) {
-      setError(err.message || 'Ошибка закрытия наряда');
+      setError(err.message || tr('Ошибка закрытия наряда', 'Нарядты жабу қатесі'));
       setSubmitting(false);
     }
   };
@@ -154,7 +156,7 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
         {/* Заголовок */}
         <div className="px-5 py-4 bg-slate-900/60 border-b border-slate-700 flex justify-between items-center">
           <div>
-            <h3 className="font-bold text-base text-white">Форма закрытия наряда №{order.number}</h3>
+            <h3 className="font-bold text-base text-white">{tr('Форма закрытия наряда', 'Нарядты жабу пішіні')} №{order.number}</h3>
             <p className="text-xs text-slate-400">{order.equipment.name} • {order.section.name}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg">
@@ -164,21 +166,21 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
 
         {/* Быстрые кнопки пресетов для сценария защиты */}
         <div className="px-5 py-2.5 bg-slate-900/40 border-b border-slate-700/60 flex items-center justify-between text-xs">
-          <span className="text-slate-400 font-medium">Пресеты сценария демо:</span>
+          <span className="text-slate-400 font-medium">{tr('Пресеты сценария демо:', 'Демо сценарий пресеттері:')}</span>
           <div className="flex space-x-2">
             <button
               type="button"
               onClick={fillGoodDemo}
               className="px-2.5 py-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 rounded-lg font-medium transition"
             >
-              ✓ Шаг 5: Идеально с фото
+              {tr('✓ Шаг 5: Идеально с фото', '✓ 5-қадам: Фотомен тамаша')}
             </button>
             <button
               type="button"
               onClick={fillBadDemo}
               className="px-2.5 py-1 bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-800 rounded-lg font-medium transition"
             >
-              ⚠ Шаг 7: Ошибка для ИИ
+              {tr('⚠ Шаг 7: Ошибка для ИИ', '⚠ 7-қадам: ЖИ үшін қате')}
             </button>
           </div>
         </div>
@@ -195,7 +197,7 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
           {/* Шифр неисправности */}
           <div>
             <label className="block text-slate-300 font-semibold mb-1">
-              Шифр неисправности (раздел 5.3) *
+              {tr('Шифр неисправности (раздел 5.3) *', 'Ақау шифры (5.3-бөлім) *')}
             </label>
             <select
               value={faultCodeId}
@@ -203,10 +205,10 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-medium"
               required
             >
-              <option value="">Выберите шифр...</option>
+              <option value="">{tr('Выберите шифр...', 'Шифрді таңдаңыз...')}</option>
               {faultCodes.map(f => (
                 <option key={f.id} value={f.id}>
-                  [{f.code}] {f.name} (норма: {f.norm_hours}ч)
+                  [{f.code}] {ts(f.name)} ({tr('норма:', 'норма:')} {f.norm_hours}{tr('ч', 'сағ')})
                 </option>
               ))}
             </select>
@@ -216,7 +218,7 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="text-slate-300 font-semibold">
-                Выполненные работы (текст / голос) *
+                {tr('Выполненные работы (текст / голос) *', 'Орындалған жұмыстар (мәтін / дауыс) *')}
               </label>
               <button
                 type="button"
@@ -226,17 +228,17 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
                     ? 'bg-red-600 border-red-500 text-white animate-pulse shadow-md shadow-red-950'
                     : 'bg-slate-700/80 hover:bg-slate-700 border-slate-600 text-emerald-400'
                 }`}
-                title="Голосовой ввод выполненных работ"
+                title={tr('Голосовой ввод выполненных работ', 'Орындалған жұмыстарды дауыспен енгізу')}
               >
                 {isListeningWork ? <MicOff size={12} /> : <Mic size={12} />}
-                <span>{isListeningWork ? 'Слушаю...' : 'Голос'}</span>
+                <span>{isListeningWork ? tr('Слушаю...', 'Тыңдап тұрмын...') : tr('Голос', 'Дауыс')}</span>
               </button>
             </div>
             <textarea
               value={workDone}
               onChange={(e) => setWorkDone(e.target.value)}
               rows={3}
-              placeholder="Детально опишите, какие узлы заменены, что отрегулировано (или надиктуйте голосом)..."
+              placeholder={tr('Детально опишите, какие узлы заменены, что отрегулировано (или надиктуйте голосом)...', 'Қандай тораптар ауыстырылғанын, не реттелгенін толық сипаттаңыз (немесе дауыспен айтыңыз)...')}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-emerald-500"
               required
             />
@@ -245,20 +247,20 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
           {/* Списание материалов */}
           <div>
             <div className="flex justify-between items-center mb-1.5">
-              <label className="text-slate-300 font-semibold">Списанные материалы и запчасти</label>
+              <label className="text-slate-300 font-semibold">{tr('Списанные материалы и запчасти', 'Есептен шығарылған материалдар мен қосалқы бөлшектер')}</label>
               <button
                 type="button"
                 onClick={addMaterialRow}
                 className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center space-x-1 font-semibold"
               >
                 <Plus size={14} />
-                <span>Добавить материал</span>
+                <span>{tr('Добавить материал', 'Материал қосу')}</span>
               </button>
             </div>
 
             {materials.length === 0 ? (
               <div className="text-xs text-slate-500 italic p-2 bg-slate-900/40 rounded-xl border border-slate-800">
-                Материалы не добавлены (нажмите «Добавить материал», если использовались запчасти)
+                {tr('Материалы не добавлены (нажмите «Добавить материал», если использовались запчасти)', 'Материалдар қосылмаған (қосалқы бөлшектер қолданылса, «Материал қосу» түймесін басыңыз)')}
               </div>
             ) : (
               <div className="space-y-2">
@@ -297,12 +299,12 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
           {/* Фото «после» */}
           <div>
             <label className="block text-slate-300 font-semibold mb-1">
-              Фото «после» ремонта (обязательно для внеплановых работ)
+              {tr('Фото «после» ремонта (обязательно для внеплановых работ)', 'Жөндеуден «кейінгі» фото (жоспардан тыс жұмыстар үшін міндетті)')}
             </label>
             <div className="flex items-center space-x-3">
               <label className="cursor-pointer flex items-center space-x-2 bg-slate-900 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl border border-slate-700 transition">
                 <Camera size={18} className="text-emerald-400" />
-                <span className="text-xs">{photoAfter ? 'Фото «после» выбрано' : 'Сделать фото «после»'}</span>
+                <span className="text-xs">{photoAfter ? tr('Фото «после» выбрано', '«Кейінгі» фото таңдалды') : tr('Сделать фото «после»', '«Кейінгі» фото түсіру')}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -321,7 +323,7 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
                 </span>
               ) : (
                 <span className="text-xs text-amber-400">
-                  (ИИ требует фото для вердикта «Принято»)
+                  {tr('(ИИ требует фото для вердикта «Принято»)', '(«Қабылданды» үкімі үшін ЖИ фотоны талап етеді)')}
                 </span>
               )}
             </div>
@@ -329,12 +331,12 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
 
           {/* Комментарий */}
           <div>
-            <label className="block text-slate-300 font-semibold mb-1">Дополнительный комментарий</label>
+            <label className="block text-slate-300 font-semibold mb-1">{tr('Дополнительный комментарий', 'Қосымша түсініктеме')}</label>
             <input
               type="text"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Примечание мастера / рабочего..."
+              placeholder={tr('Примечание мастера / рабочего...', 'Шебердің / жұмысшының ескертпесі...')}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 text-xs"
             />
           </div>
@@ -346,7 +348,7 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
               onClick={onClose}
               className="px-4 py-2 text-slate-300 hover:text-white bg-slate-700/60 rounded-xl transition"
             >
-              Отмена
+              {tr('Отмена', 'Бас тарту')}
             </button>
             <button
               type="submit"
@@ -354,11 +356,11 @@ export const CloseOrderModal: React.FC<CloseOrderModalProps> = ({ order, onClose
               className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-950 transition flex items-center space-x-2 btn-touch disabled:opacity-50"
             >
               {submitting ? (
-                <span>ИИ проверяет наряд...</span>
+                <span>{tr('ИИ проверяет наряд...', 'ЖИ нарядты тексеруде...')}</span>
               ) : (
                 <>
                   <Sparkles size={18} />
-                  <span>Отправить на проверку ИИ</span>
+                  <span>{tr('Отправить на проверку ИИ', 'ЖИ тексеруіне жіберу')}</span>
                 </>
               )}
             </button>
